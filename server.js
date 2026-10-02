@@ -11,6 +11,7 @@ const { Queue, QueueEvents, Worker } = require('bullmq');
 const IORedis = require('ioredis');
 const { THAI_FOODS } = require('./thai-foods');
 const { recognizeFood, preprocessImage } = require('./services/foodRecognition');
+const { timezoneOf, localDay, checkQuota, recordUse } = require('./services/usageLimits');
 require('dotenv').config();
 
 const User     = require('./models/User');
@@ -36,7 +37,11 @@ app.get('/admin', (_, res) => res.redirect('/admin/adminLogin.html'));
 app.use('/admin', adminRoutes);
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = 'gemini-flash-latest';
+// AI 教練用的模型，依序嘗試（前一個失敗就立刻換下一個，不等退避）。
+// 2026-10 實測：flash-latest / 3.5-flash 尖峰時一次要 13~22 秒還常回 503，教練幾乎都逾時；
+// 3.5-flash-lite 關掉思考只要 1~2 秒，聊天品質足夠。可用 GEMINI_COACH_MODELS 環境變數覆寫
+const COACH_MODELS = (process.env.GEMINI_COACH_MODELS || 'gemini-3.5-flash-lite,gemini-3.1-flash-lite')
+  .split(',').map(m => m.trim()).filter(Boolean);
 const JWT_SECRET = process.env.JWT_SECRET;
 
 // Google 登入：三個平台各自的 Client ID 共用同一組驗證（Web 用來源自 web/expo-auth-session 的 id_token，iOS/Android 各自的原生 client）。
@@ -301,7 +306,12 @@ app.post('/coach/chat', requireAuth, async (req, res) => {
     const user = await User.findById(req.uid).lean();
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const today = new Date().toISOString().slice(0, 10);
+    const tz = timezoneOf(req);
+    const quota = await checkQuota(user, 'coach', tz);
+    if (!quota.allowed) return res.status(429).json({ error: 'daily_limit', ...quota });
+
+    // 「今天」用使用者當地的日期，跟 App 記錄飲食用的日期一致（以前用 UTC，台灣早上 8 點前會讀到前一天）
+    const today = localDay(tz).day;
     const todayLog = await DailyLog.findOne({ userId: req.uid, date: today }).lean();
     const totals = (todayLog?.meals ?? []).reduce(
       (acc, m) => ({
@@ -342,40 +352,35 @@ app.post('/coach/chat', requireAuth, async (req, res) => {
       .filter(m => m?.text?.trim())
       .map(m => ({ role: m.role === 'model' ? 'model' : 'user', parts: [{ text: m.text.trim() }] }));
 
-    const geminiRes = await withRetry(() => axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-      { systemInstruction: { parts: [{ text: systemPrompt }] }, contents },
-      { timeout: 15000 }
-    ));
-
-    const reply = geminiRes.data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    let reply, lastErr;
+    for (const model of COACH_MODELS) {
+      try {
+        const geminiRes = await axios.post(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+          {
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents,
+            generationConfig: { thinkingConfig: { thinkingLevel: 'minimal' } },
+          },
+          { timeout: 12000, headers: { 'X-goog-api-key': GEMINI_API_KEY } } // key 放 header，不放網址（才不會出現在 log）
+        );
+        reply = geminiRes.data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (reply) break;
+      } catch (err) {
+        lastErr = err;
+        console.warn(`[coach/chat] ${model} failed:`, err.response?.status ?? err.message);
+      }
+    }
+    if (!reply && lastErr) throw lastErr;
     if (!reply) return res.status(502).json({ error: 'AI 沒有回應，請再試一次' });
 
+    await recordUse(user, 'coach', tz);
     res.json({ reply });
   } catch (err) {
     console.error('[coach/chat] failed:', err.response?.data ? JSON.stringify(err.response.data) : err.message);
     res.status(500).json({ error: 'AI 教練暫時無法回應，請稍後再試' });
   }
 });
-
-// 503/429/529 通常是對方暫時過載/限流，重試就會過去；其他錯誤（400 格式錯、401 key 錯等）
-// 重試也沒用，直接往外丟。指數退避 1s/2s/4s，最多重試 3 次——參考 fud-ai（開源食物辨識 App）
-// 的 RetryPolicy：我們先前實測就撞過 Gemini 503，當時直接放棄退到 Vision（準確度差很多），
-// 有這層重試就不會一遇到暫時性過載就整個降級
-const RETRY_DELAYS_MS = [1000, 2000, 4000];
-async function withRetry(fn) {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      const status = err.response?.status;
-      const retryable = status === 503 || status === 429 || status === 529;
-      if (!retryable || attempt >= RETRY_DELAYS_MS.length) throw err;
-      console.warn(`[AI retry] HTTP ${status}，${RETRY_DELAYS_MS[attempt]}ms 後重試（第 ${attempt + 1} 次）`);
-      await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
-    }
-  }
-}
 
 // Gemini 直接「看圖辨認 + 估營養素」，不再只給候選名稱交給 USDA 查（USDA 是英文資料庫，在地小吃常配錯）。
 // 辨識本身（prompt、縮圖、模型對沖與死線）搬到 services/foodRecognition.js，那邊有速度與準確度調整的完整說明。
@@ -431,7 +436,9 @@ function publicAnalysisResult(r) {
 // 在同一個 request 裡等 Worker 做完，最多等 ANALYZE_WAIT_MS：
 //   - 做完了（絕大多數情況，實測 3~4 秒）→ 直接 200 回傳結果，前端不用再輪詢，省掉最多一整個輪詢間隔
 //   - 還沒好（佇列塞車等極端情況）→ 退回原本的 202 + analysisId，前端照舊輪詢 GET /analyses/:id
-app.post('/analyze', optionalAuth, upload.array('images', 5), async (req, res) => {
+// 必須登入（2026-10 起）：AI 是付費 API，匿名可用的話任何人都能無限制打、費用算在我們頭上。
+// 每日額度見 services/usageLimits.js，超過回 429 { error: 'daily_limit', used, limit, plan, resetAt }
+app.post('/analyze', requireAuth, upload.array('images', 5), async (req, res) => {
   const description = (req.body.description ?? '').trim();
   // App 的語言設定（'en' | 'zh'），決定 AI 回傳的食物名稱用哪種語言；舊版 App 不會帶，預設中文
   // 同名欄位送兩次時 multer 會給陣列（['en','en']），直接比對 === 'en' 會失敗而退回中文——取第一個值
@@ -439,6 +446,10 @@ app.post('/analyze', optionalAuth, upload.array('images', 5), async (req, res) =
   const lang = langField === 'en' ? 'en' : 'zh';
   const files = req.files ?? [];
   if (!files.length && !description) return res.status(400).json({ error: 'Please provide an image or a description' });
+
+  const user = await User.findById(req.uid).lean();
+  const quota = await checkQuota(user, 'analyze', timezoneOf(req));
+  if (!quota.allowed) return res.status(429).json({ error: 'daily_limit', ...quota });
 
   let analysis, job;
   try {
@@ -467,6 +478,19 @@ app.post('/analyze', optionalAuth, upload.array('images', 5), async (req, res) =
     if (latest?.status === 'failed') return res.status(502).json({ error: latest.error ?? 'Analysis failed' });
     return res.status(202).json({ analysisId: analysis._id, status: 'pending' });
   }
+});
+
+// GET /usage — 今天各項 AI 功能用了幾次、上限多少，App 用來顯示「今天還剩 3 次」
+app.get('/usage', requireAuth, async (req, res) => {
+  const user = await User.findById(req.uid).lean();
+  const tz = timezoneOf(req);
+  const [analyze, coach] = await Promise.all([checkQuota(user, 'analyze', tz), checkQuota(user, 'coach', tz)]);
+  res.json({
+    plan: analyze.plan,
+    resetAt: analyze.resetAt,
+    analyze: { used: analyze.used, limit: analyze.limit },
+    coach: { used: coach.used, limit: coach.limit },
+  });
 });
 
 // GET /analyses/:id — 前端輪詢用：查某一筆辨識任務目前的狀態，done 的話一併回傳結果

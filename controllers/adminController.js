@@ -5,7 +5,8 @@ const Admin = require('../models/Admin');
 const User = require('../models/User');
 const DailyLog = require('../models/DailyLog');
 
-const USER_FIELDS = ['name', 'email', 'status', 'gender', 'age', 'height', 'weight', 'activity', 'goal', 'bmr', 'tdee', 'target'];
+// premium 只有後台能改（App 的 PUT /me 用的是 server.js 的 PROFILE_FIELDS，刻意不含 premium，使用者不能自己升級）
+const USER_FIELDS = ['name', 'email', 'status', 'premium', 'gender', 'age', 'height', 'weight', 'activity', 'goal', 'bmr', 'tdee', 'target'];
 
 // 白名單過濾，跟 App 端的 publicProfile() 同一個原則：passwordHash 永遠不可以吐給前端
 function publicUser(user) {

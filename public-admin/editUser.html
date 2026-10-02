@@ -27,6 +27,13 @@
         <option value="Inactive">Inactive</option>
     </select>
 
+    <label>Plan</label>
+
+    <select id="premium">
+        <option value="false">Free</option>
+        <option value="true">Premium</option>
+    </select>
+
     <div class="button-group">
         <button class="save-btn" onclick="updateUser()">
             Update User
@@ -62,6 +69,7 @@ async function loadUser() {
     document.getElementById("name").value = result.data.name ?? "";
     document.getElementById("email").value = result.data.email ?? "";
     document.getElementById("status").value = result.data.status ?? "Active";
+    document.getElementById("premium").value = String(result.data.premium === true);
 }
 
 
@@ -82,7 +90,10 @@ async function updateUser() {
 
             email: document.getElementById("email").value,
 
-            status: document.getElementById("status").value
+            status: document.getElementById("status").value,
+
+            // Premium = 不受免費版每日 5 次的限制（demo 帳號、送朋友試用時手動開）
+            premium: document.getElementById("premium").value === "true"
 
         })
 
