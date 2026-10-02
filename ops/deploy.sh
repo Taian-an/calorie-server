@@ -10,7 +10,7 @@ set -euo pipefail
 # --- 設定 ---
 VM_USER="azureuser"
 VM_HOST="20.46.181.25" # 2026-09 從香港(East Asia)搬到日本東部(Japan East)：Google Gemini API 不支援香港地區存取
-PROD_DOMAIN="20-46-181-25.nip.io" # TLS 憑證是發給這個 nip.io 網域的，不是裸 IP，驗證步驟要用這個不能用 VM_HOST
+PROD_DOMAIN="app.calorietracks.com" # 2026-10 起的正式網域；舊的 20-46-181-25.nip.io 仍保留 /api 給已安裝的舊版 App
 PROD_API_URL="https://$PROD_DOMAIN/api"
 BACKEND_REMOTE="/var/www/calorie-backend"
 APP_REMOTE="/var/www/calorie-app"
