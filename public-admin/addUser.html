@@ -1,0 +1,79 @@
+<html>
+    <head>
+        <title>Add User</title>
+        <link rel="stylesheet" href="css/addUser.css">
+    </head>
+    <body>
+        <div class="content">
+
+            <!-- <h2>Add User</h2> -->
+
+            <div class="form-card">
+                <h2>Add New User</h2>
+
+                <label>Name</label>
+                <input id="name" placeholder="Enter name">
+
+                <label>Email</label>
+                <input id="email" placeholder="Enter email">
+
+                <label>Status</label>
+                <select id="status">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                </select>
+
+
+                <div class="button-group">
+                    <button class="save-btn" onclick="addUser()">
+                        Add User
+                    </button>
+
+                    <button class="cancel-btn" onclick="goBack()">
+                        Cancel
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <script src="js/i18n.js"></script>
+<script src="js/adminAuth.js"></script>
+        <script>
+            requireAdminLogin();
+
+            async function addUser(){
+                const user = {
+                    name: document.getElementById("name").value,
+                    email: document.getElementById("email").value,
+                    status: document.getElementById("status").value
+                };
+
+                const response = await adminFetch("/admin/users",{
+                    method:"POST",
+                    headers:{
+                       "Content-Type":"application/json"
+                    },
+                    body:JSON.stringify(user)
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    // 目前表單沒有收密碼，後端會產生一組臨時密碼，這裡顯示一次，之後手動轉交給使用者
+                    alert(t("User added. Temporary password: {password}\n\nGive this password to the user separately — it won't be shown again after you close this.", { password: result.tempPassword }));
+                    window.location.href="users.html";
+                } else {
+                    alert(t(result.error || "Failed to add user"));
+                }
+            }
+
+            function goBack(){
+                window.location.href="users.html";
+            }
+        </script>
+
+    </body>
+
+</html>

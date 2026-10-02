@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Settings</title>
+
+<link rel="stylesheet" href="css/users.css">
+<link rel="stylesheet" href="css/addUser.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+    <!-- Sidebar -->
+        <div class="sidebar">
+
+            <h2>🥗 Calorie AI</h2>
+
+            <ul>
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="users.html">Users</a></li>
+                <li><a href="feedback.html">Feedback</a></li>
+                <li class="active"><a href="settings.html">Settings</a></li>
+                <li><a href="#" onclick="adminLogout(); return false;">Logout</a></li>
+            </ul>
+
+        </div>
+
+    <!-- Main -->
+        <div class="main">
+
+            <div class="header">
+                <h1>Settings</h1>
+            </div>
+
+            <div class="form-card" style="margin: 0;">
+
+                <h2>Change Password</h2>
+
+                <p id="currentUsername" style="text-align:center; color:#666; margin-bottom: 10px;"></p>
+
+                <label>Current Password</label>
+                <input type="password" id="currentPassword">
+
+                <label>New Password</label>
+                <input type="password" id="newPassword" placeholder="At least 6 characters">
+
+                <label>Confirm New Password</label>
+                <input type="password" id="confirmPassword">
+
+                <p id="formMsg" style="display:none; margin-top:12px; text-align:center;"></p>
+
+                <div class="button-group">
+                    <button class="save-btn" onclick="changePassword()">
+                        Update Password
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="js/i18n.js"></script>
+<script src="js/adminAuth.js"></script>
+    <script>
+        requireAdminLogin();
+
+        async function loadMe() {
+            const response = await adminFetch('/admin/me');
+            const result = await response.json();
+            if (result.success) {
+                document.getElementById('currentUsername').textContent = t('Logged in as: {username}', { username: result.data.username });
+            }
+        }
+
+        function showMsg(text, isError) {
+            const el = document.getElementById('formMsg');
+            el.textContent = t(text);
+            el.style.color = isError ? '#c0392b' : '#2E7D32';
+            el.style.display = 'block';
+        }
+
+        async function changePassword() {
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (newPassword !== confirmPassword) {
+                showMsg('New password and confirmation do not match', true);
+                return;
+            }
+
+            const response = await adminFetch('/admin/settings/password', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ currentPassword, newPassword }),
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                showMsg('Password updated successfully.', false);
+                document.getElementById('currentPassword').value = '';
+                document.getElementById('newPassword').value = '';
+                document.getElementById('confirmPassword').value = '';
+            } else {
+                showMsg(result.error || 'Failed to update password', true);
+            }
+        }
+
+        loadMe();
+    </script>
+
+    </body>
+</html>

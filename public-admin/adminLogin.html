@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Admin Login</title>
+
+<link rel="stylesheet" href="css/adminLogin.css">
+
+
+</head>
+
+<body>
+
+<div class="login-container">
+
+    <div class="logo">
+
+        🥗
+
+    </div>
+
+    <h1>Calorie Tracker AI</h1>
+
+    <p>Admin</p>
+
+
+    <form id="loginForm">
+        <input type="text" id="username" placeholder="Username" required>
+        <input type="password" id="password" placeholder="Password" required>
+        <button type="submit">Login</button>
+    </form>
+
+    <p id="loginError" style="color:#c0392b; display:none; margin-top:12px;"></p>
+
+</div>
+
+<script src="js/i18n.js"></script>
+<script src="js/adminAuth.js"></script>
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errorEl = document.getElementById('loginError');
+    errorEl.style.display = 'none';
+
+    const res = await fetch('/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value,
+        }),
+    });
+    const result = await res.json();
+
+    if (result.success) {
+        setAdminToken(result.token);
+        window.location.href = 'dashboard.html';
+    } else {
+        errorEl.textContent = t(result.error || 'Login failed');
+        errorEl.style.display = 'block';
+    }
+});
+</script>
+
+</body>
+
+</html>

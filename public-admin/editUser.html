@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit User</title>
+
+    <link rel="stylesheet" href="css/addUser.css">
+</head>
+
+<body>
+
+<div class="form-card">
+
+    <h2>Edit User</h2>
+
+    <label>Name</label>
+    <input type="text" id="name">
+
+    <label>Email</label>
+    <input type="email" id="email">
+
+    <label>Status</label>
+
+    <select id="status">
+        <option value="Active">Active</option>
+        <option value="Inactive">Inactive</option>
+    </select>
+
+    <div class="button-group">
+        <button class="save-btn" onclick="updateUser()">
+            Update User
+        </button>
+
+        <button class="cancel-btn" onclick="window.location.href='users.html'">
+            Cancel
+        </button>
+    </div>
+
+</div>
+
+<script src="js/i18n.js"></script>
+<script src="js/adminAuth.js"></script>
+<script>
+
+requireAdminLogin();
+
+const id = new URLSearchParams(window.location.search).get("id");
+
+// 读取用户资料
+async function loadUser() {
+
+    const response = await adminFetch("/admin/users/" + id);
+    const result = await response.json();
+
+    if (!result.success) {
+        alert(t(result.error || "User not found"));
+        window.location.href = "users.html";
+        return;
+    }
+
+    document.getElementById("name").value = result.data.name ?? "";
+    document.getElementById("email").value = result.data.email ?? "";
+    document.getElementById("status").value = result.data.status ?? "Active";
+}
+
+
+// 更新用户
+async function updateUser() {
+
+    const response = await adminFetch("/admin/users/" + id, {
+
+        method: "PUT",
+
+        headers: {
+            "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+
+            name: document.getElementById("name").value,
+
+            email: document.getElementById("email").value,
+
+            status: document.getElementById("status").value
+
+        })
+
+    });
+
+    const result = await response.json();
+    if (!result.success) {
+        alert(t(result.error || "Failed to update user"));
+        return;
+    }
+
+    alert(t("User updated successfully!"));
+
+    window.location.href = "users.html";
+
+}
+
+loadUser();
+
+</script>
+
+</body>
+</html>

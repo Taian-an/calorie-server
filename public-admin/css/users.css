@@ -1,0 +1,281 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Poppins, sans-serif;
+}
+
+body{
+    background:#F6F8F7;
+}
+
+.container{
+    display:flex;
+}
+
+.sidebar{
+
+    width:240px;
+
+    height:100vh;
+
+    background:white;
+
+    border-right:1px solid #eee;
+
+    padding:30px;
+}
+
+.sidebar h2{
+
+    color:#4CAF50;
+
+    margin-bottom:40px;
+}
+
+.sidebar ul{
+
+    list-style:none;
+}
+
+.sidebar li{
+
+    padding:15px;
+
+    margin-bottom:10px;
+
+    border-radius:10px;
+
+    cursor:pointer;
+}
+
+.sidebar a{
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.sidebar li:hover{
+
+    background:#E8F5E9;
+}
+
+.active{
+
+    background:#4CAF50;
+
+    color:white;
+}
+
+
+/* SIDEBAR */
+/* .sidebar{
+    width:240px;
+    height:100vh;
+    background:white;
+    border-right:1px solid #eee;
+    padding:30px;
+}
+
+.sidebar h2{
+
+    color:#4CAF50;
+
+    margin-bottom:40px;
+}
+
+.sidebar ul{
+    list-style:none;
+}
+
+.sidebar li{
+    padding:15px;
+    margin-bottom:10px;
+    border-radius:10px;
+}
+
+.sidebar li:hover{
+    background:#E8F5E9;
+}
+
+.sidebar a{
+    text-decoration:none;
+    color:inherit;
+    display:block;
+}
+
+.active{
+    background:#4CAF50;
+    color:white;
+} */
+
+/* MAIN */
+.main{
+    flex:1;
+    padding:40px;
+}
+
+.header{
+    margin-bottom:25px;
+}
+
+.header h1{
+    color:#2E7D32;
+}
+
+/* CARD */
+.card{
+    background:white;
+    padding:25px;
+    border-radius:15px;
+    box-shadow:0 5px 15px rgba(0,0,0,.05);
+}
+
+/* TOP BAR */
+.top-bar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+}
+
+.add-btn{
+    background:#4CAF50;
+    color:white;
+    border:none;
+    padding:10px 15px;
+    border-radius:8px;
+    cursor:pointer;
+}
+
+/* SEARCH */
+.search-bar{
+    display:flex;
+    gap:10px;
+    margin-bottom:20px;
+}
+
+.search-bar input{
+    flex:1;
+    padding:10px;
+    border:1px solid #ddd;
+    border-radius:8px;
+}
+
+.search-bar button{
+    background:#4CAF50;
+    color:white;
+    border:none;
+    padding:10px 15px;
+    border-radius:8px;
+    cursor:pointer;
+}
+
+/* TABLE */
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th{
+    background:#E8F5E9;
+    color:#2E7D32;
+    padding:15px;
+}
+
+/* 可排序的欄位標題（users.html） */
+th.sortable{
+    cursor:pointer;
+    user-select:none;
+    white-space:nowrap;
+}
+
+th.sortable:hover{
+    background:#D7EED9;
+}
+
+.sort-arrow{
+    display:inline-block;
+    width:1em;
+    color:#2E7D32;
+}
+
+td{
+    padding:15px;
+    text-align:center;
+    border-bottom:1px solid #eee;
+}
+
+tr:hover{
+    background:#F9F9F9;
+}
+
+/* BUTTONS */
+.edit-btn{
+    background:#4CAF50;
+    color:white;
+    border:none;
+    padding:6px 12px;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+.delete-btn{
+    background:#E53935;
+    color:white;
+    border:none;
+    padding:6px 12px;
+    border-radius:6px;
+        cursor:pointer;
+
+}
+
+.records-btn{
+    background:#1E88E5;
+    color:white;
+    border:none;
+    padding:6px 12px;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+.back-link{
+    display:inline-block;
+    margin-bottom:20px;
+    color:#2E7D32;
+    text-decoration:none;
+}
+
+.log-day{
+    border:1px solid #eee;
+    border-radius:10px;
+    padding:15px 20px;
+    margin-bottom:15px;
+}
+
+.log-day h3{
+    color:#2E7D32;
+    margin-bottom:10px;
+}
+
+.log-day table{
+    margin-top:10px;
+}
+
+.log-day th{
+    background:#F1F8F2;
+}
+
+.empty-state{
+    text-align:center;
+    color:#999;
+    padding:30px;
+}
+
+
+/* 表格裡的按鈕文字不換行（中文「編輯」在窄欄位會被拆成一字一行） */
+td button{
+    white-space:nowrap;
+}

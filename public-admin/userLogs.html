@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>User Records</title>
+
+<link rel="stylesheet" href="css/users.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+    <!-- Sidebar -->
+        <div class="sidebar">
+
+            <h2>🥗 Calorie AI</h2>
+
+            <ul>
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li class="active"><a href="users.html">Users</a></li>
+                <li><a href="feedback.html">Feedback</a></li>
+                <li><a href="settings.html">Settings</a></li>
+                <li><a href="#" onclick="adminLogout(); return false;">Logout</a></li>
+            </ul>
+
+        </div>
+
+    <!-- Main -->
+        <div class="main">
+
+            <div class="header">
+                <h1 id="pageTitle">User Records</h1>
+            </div>
+
+            <div class="card">
+
+                <a class="back-link" href="users.html">← Back to Users</a>
+
+                <div id="userSummary"></div>
+
+                <div id="logsContainer"></div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="js/i18n.js"></script>
+<script src="js/adminAuth.js"></script>
+    <script src="js/userLogs.js"></script>
+
+    </body>
+</html>

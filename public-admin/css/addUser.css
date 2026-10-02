@@ -1,0 +1,124 @@
+body {
+    font-family: Arial, sans-serif;
+    background: #f5f8f5;
+}
+
+
+/* Add User Card */
+.form-card {
+
+    width: 420px;
+
+    background: white;
+
+    padding: 30px;
+
+    margin: 50px auto;
+
+    border-radius: 15px;
+
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+
+.form-card h2 {
+
+    color: #4caf50;
+
+    text-align: center;
+
+    margin-bottom: 25px;
+
+}
+
+
+.form-card label {
+
+    display: block;
+
+    margin-top: 15px;
+
+    color: #333;
+
+    font-weight: bold;
+
+}
+
+
+.form-card input,
+.form-card select {
+
+    width: 100%;
+
+    padding: 12px;
+
+    margin-top: 8px;
+
+    border: 1px solid #ddd;
+
+    border-radius: 8px;
+
+    box-sizing: border-box;
+
+}
+
+
+/* Buttons */
+
+.button-group {
+
+    margin-top: 25px;
+
+    display: flex;
+
+    justify-content: center;
+
+    gap: 15px;
+
+}
+
+
+.save-btn {
+
+    background: #4caf50;
+
+    color: white;
+
+    border: none;
+
+    padding: 12px 25px;
+
+    border-radius: 8px;
+
+    cursor: pointer;
+
+}
+
+
+.save-btn:hover {
+
+    background: #388e3c;
+
+}
+
+
+.cancel-btn {
+
+    background: #e0e0e0;
+
+    border: none;
+
+    padding: 12px 25px;
+
+    border-radius: 8px;
+
+    cursor: pointer;
+
+}
+
+
+.cancel-btn:hover {
+
+    background: #bdbdbd;
+
+}

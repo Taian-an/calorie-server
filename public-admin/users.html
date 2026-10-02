@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Users</title>
+
+<link rel="stylesheet" href="css/users.css">
+</head>
+
+<body>
+
+
+    <div class="container">
+
+    <!-- Sidebar -->
+        <div class="sidebar">
+
+            <h2>🥗 Calorie AI</h2>
+
+            <ul>
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li class="active"><a href="users.html">Users</a></li>
+                <li><a href="feedback.html">Feedback</a></li>
+                <li><a href="settings.html">Settings</a></li>
+                <li><a href="#" onclick="adminLogout(); return false;">Logout</a></li>
+            </ul>
+
+        </div>
+
+    <!-- Main -->
+        <div class="main">
+
+            <div class="header">
+                <h1>User Management</h1>
+            </div>
+
+            <div class="card">
+
+                <div class="top-bar">
+                    <h2>All Users</h2>
+                    <button class="add-btn" onclick="location.href='addUser.html'">+ Add User</button>
+                </div>
+
+                <div class="search-bar">
+                    <input type="text" id="searchInput" placeholder="Search user...">
+                    <button onclick="searchUsers()">Search</button>
+                </div>
+
+                <table>
+                        <thead>
+                            <!-- 點欄位標題排序，再點一次反向（排序在 js/users.js，資料一次全部載入所以在前端排） -->
+                            <tr>
+                                <th class="sortable" data-sort="userId">ID <span class="sort-arrow"></span></th>
+                                <th class="sortable" data-sort="name">Name <span class="sort-arrow"></span></th>
+                                <th class="sortable" data-sort="email">Email <span class="sort-arrow"></span></th>
+                                <th class="sortable" data-sort="status">Status <span class="sort-arrow"></span></th>
+                                <th class="sortable" data-sort="createdAt">Joined <span class="sort-arrow"></span></th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="userTable"></tbody>
+                
+
+                    <!-- <tr>
+                        <td>1001</td>
+                        <td>Suki</td>
+                        <td>suki@gmail.com</td>
+                        <td>Active</td>
+                        <td>
+                            <button class="edit-btn">Edit</button>
+                            <button class="delete-btn">Delete</button>
+                        </td>
+                    </tr> -->
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+    <script src="js/i18n.js"></script>
+<script src="js/adminAuth.js"></script>
+    <script src="js/users.js"></script>
+
+    </body>
+</html>

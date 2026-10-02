@@ -1,0 +1,60 @@
+/* feedback.html 用：分頁控制項、標籤跟篩選按鈕，其他共用 users.css 的 container/sidebar/card/table 樣式（Food Records 頁已移除，檔名沿用） */
+
+.filter-btn {
+    background: white;
+    color: #4CAF50;
+    border: 1px solid #4CAF50;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.filter-btn.active {
+    background: #4CAF50;
+    color: white;
+}
+
+.status-tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    background: #FFF3E0;
+    color: #E65100;
+}
+
+.status-tag.reviewed { background: #E8F5E9; color: #2E7D32; }
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.pagination button {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.pagination button:disabled {
+    background: #C8E6C9;
+    cursor: not-allowed;
+}
+
+.source-tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    background: #E8F5E9;
+    color: #2E7D32;
+}
+
+.source-tag.usda { background: #E3F2FD; color: #1565C0; }
+.source-tag.admin { background: #FFF3E0; color: #E65100; }
