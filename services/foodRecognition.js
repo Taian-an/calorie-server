@@ -7,7 +7,7 @@ const sharp = require('sharp');
    1. 照片原圖直接送：手機原圖 3~5MB，上傳、base64 塞進 Redis、再轉送 Gemini 都慢
       → preprocessImage() 先縮到長邊 1024px、JPEG q80（約 100~200KB），辨識準確度幾乎不受影響
    2. gemini-flash-latest 預設會「思考」，遇到壅塞時同一張圖要 8~15 秒
-      → 指定 gemini-3.5-flash 並把 thinking 關到 minimal，食物辨識這種看圖估數字的任務不需要長推理
+      → 改用 flash-lite 系列（見下方 FOOD_MODELS）並把 thinking 關到 minimal，食物辨識這種看圖估數字的任務不需要長推理
    3. 失敗重試用 1s/2s/4s 退避，最壞情況光等待就 7 秒，一定超過 9 秒
       → 改成「整體死線 + 對沖請求（hedged request）」：主模型 HEDGE_MS 內沒回來就同時對備援模型再發一次，
         誰先回來用誰、其他的直接 abort；某個模型報錯就立刻換下一個，不再睡覺等退避
@@ -25,8 +25,10 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 // 依序嘗試的模型，第一個是主模型，後面是對沖/備援。可用環境變數覆寫，不用改程式碼就能換模型。
 // 2026-09 實測（1024px 滷肉飯照片）：3.5-flash 約 2.7~3.1 秒、明細最細（會抓到半顆蛋、分出青江菜）；
 // 3.5-flash-lite / 3.1-flash-lite 約 2.3~2.5 秒；原本的 flash-latest + 原圖約 5.3~6 秒。
+// 2026-10 改成 flash-lite 優先：3.5-flash 尖峰時常回 503 或 13~22 秒才回，每次都要等 HEDGE_MS 才切到 lite，
+// 實測整段 6~6.7 秒；lite 優先後 2.1~2.5 秒。代價是組成明細偶爾沒那麼細。3.5-flash 留在最後當備援
 // 2.5-flash-lite 已對新使用者下架（404），不要再放進清單
-const FOOD_MODELS = (process.env.GEMINI_FOOD_MODELS || 'gemini-3.5-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite')
+const FOOD_MODELS = (process.env.GEMINI_FOOD_MODELS || 'gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-3.5-flash')
   .split(',').map(s => s.trim()).filter(Boolean);
 // 整段辨識最多花多久（毫秒）。留 ~1.5 秒給上傳與回傳，讓使用者端總時間壓在 9 秒內
 const DEADLINE_MS = Number(process.env.FOOD_AI_DEADLINE_MS) || 7500;
