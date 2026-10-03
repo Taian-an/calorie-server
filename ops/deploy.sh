@@ -58,7 +58,13 @@ rsync -avz --delete \
   "$VM_USER@$VM_HOST:$BACKEND_REMOTE/"
 
 echo "==> npm install + 重啟 PM2"
-$SSH "$VM_USER@$VM_HOST" "cd $BACKEND_REMOTE && npm install && pm2 restart $PM2_APP_NAME"
+# npm install 加 5 分鐘上限：2026-10 曾經在 VM 上卡住 3 個多小時，後面的 pm2 restart 一直沒執行（新程式碼沒上線）。
+# 逾時的話這裡會失敗並中止部署，訊息會提示手動重啟；--no-audit/--no-fund 省掉跟部署無關的網路請求
+$SSH "$VM_USER@$VM_HOST" "cd $BACKEND_REMOTE && timeout 300 npm install --no-audit --no-fund && pm2 restart $PM2_APP_NAME" || {
+  echo "npm install 失敗或超過 5 分鐘。程式碼已上傳；沒有新增套件的話，可以直接重啟：" >&2
+  echo "  ssh -i $KEY_PATH $VM_USER@$VM_HOST 'pm2 restart $PM2_APP_NAME'" >&2
+  exit 1
+}
 
 echo "==> 後端部署完成"
 
