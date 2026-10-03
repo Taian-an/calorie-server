@@ -4,6 +4,7 @@ const { adminLoginLimiter } = require('../middleware/rateLimiter');
 const ctrl = require('../controllers/adminController');
 const feedbackCtrl = require('../controllers/adminFeedbackController');
 const dashboardCtrl = require('../controllers/adminDashboardController');
+const analysisCtrl = require('../controllers/adminAnalysisController');
 
 const router = express.Router();
 
@@ -19,6 +20,9 @@ router.delete('/users/:id', requireAdminAuth, ctrl.deleteUser);
 router.get('/feedback', requireAdminAuth, feedbackCtrl.listFeedback);
 router.put('/feedback/:id', requireAdminAuth, feedbackCtrl.updateFeedback);
 router.delete('/feedback/:id', requireAdminAuth, feedbackCtrl.deleteFeedback);
+
+router.get('/analyses', requireAdminAuth, analysisCtrl.listAnalyses);
+router.get('/analyses/stats', requireAdminAuth, analysisCtrl.getAnalysisStats);
 
 router.get('/dashboard', requireAdminAuth, dashboardCtrl.getStats);
 
