@@ -290,6 +290,43 @@ app.put('/logs/:date', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// 教練要知道使用者過去的飲食與體重紀錄（不只今天），才能看長期趨勢給建議。
+// 最近 14 天逐日列出，再加上 28 天的平均與體重變化；只算有記錄食物的天數
+const COACH_HISTORY_DAYS = 28;
+const COACH_DAILY_LINES = 14;
+async function coachHistory(userId, today, currentTarget) {
+  const from = new Date(Date.parse(`${today}T00:00:00Z`) - COACH_HISTORY_DAYS * 86400000).toISOString().slice(0, 10);
+  const logs = await DailyLog.find({ userId, date: { $gte: from, $lt: today } }).sort({ date: 1 }).lean();
+  const days = logs
+    .filter(l => l.meals?.length)
+    .map(l => {
+      const sum = k => l.meals.reduce((acc, m) => acc + (m[k] || 0), 0);
+      return { date: l.date, energy: sum('energy'), protein: sum('protein'), target: l.target ?? currentTarget };
+    });
+  const weights = logs.filter(l => l.weight != null).map(l => ({ date: l.date, weight: l.weight }));
+  if (!days.length && !weights.length) return ['（還沒有今天以前的紀錄）'];
+
+  const lines = days.slice(-COACH_DAILY_LINES).map(d => {
+    const diff = d.target != null ? Math.round(d.energy - d.target) : null;
+    const vs = diff == null ? '' : diff > 0 ? `，超出目標 ${diff}` : `，低於目標 ${-diff}`;
+    return `${d.date}：${Math.round(d.energy)} kcal${vs}（蛋白質 ${Math.round(d.protein)}g）`;
+  });
+  if (days.length) {
+    const avg = Math.round(days.reduce((a, d) => a + d.energy, 0) / days.length);
+    const withTarget = days.filter(d => d.target != null);
+    const net = Math.round(withTarget.reduce((a, d) => a + d.energy - d.target, 0));
+    lines.push(`過去 ${COACH_HISTORY_DAYS} 天有記錄的 ${days.length} 天，平均每天 ${avg} kcal` +
+      (withTarget.length ? `，相對目標累計 ${net >= 0 ? '+' : ''}${net} kcal` : ''));
+  }
+  if (weights.length >= 2) {
+    const first = weights[0], last = weights[weights.length - 1];
+    lines.push(`體重紀錄：${first.date} ${first.weight} kg → ${last.date} ${last.weight} kg`);
+  } else if (weights.length === 1) {
+    lines.push(`體重紀錄：${weights[0].date} ${weights[0].weight} kg`);
+  }
+  return lines;
+}
+
 /* ===== AI 教練：一般文字對話，帶使用者的身體數據 + 今天的飲食進度當背景資訊 =====
    跟 /analyze 不一樣，這裡不用 BullMQ 排隊——純文字對話本來就是「問了就等一下」的體驗，
    使用者本來就有心理預期要等 AI 回覆，不像拍照上傳需要立刻有反應，直接同步呼叫就好。 */
@@ -323,6 +360,7 @@ app.post('/coach/chat', requireAuth, async (req, res) => {
       { energy: 0, protein: 0, carbs: 0, fat: 0 }
     );
     const remaining = user.target != null ? Math.round(user.target - totals.energy) : null;
+    const history = await coachHistory(req.uid, today, user.target);
 
     const systemPrompt = [
       '你是「AI 卡路里追蹤」App 裡的個人營養與健身教練，個性親切、有耐心、講重點，語氣自然口語化。',
@@ -333,7 +371,7 @@ app.post('/coach/chat', requireAuth, async (req, res) => {
       '不是醫生，不做疾病診斷；遇到明顯的健康/醫療問題，建議使用者去看醫生或營養師，不要自己給診斷或處方。',
       '',
       '=== 使用者資料 ===',
-      user.gender != null   ? `性別：${user.gender}` : null,
+      user.gender != null   ? `性別：${{ male: '男', female: '女' }[user.gender] ?? '其他 / 不透露（BMR 用男女公式平均估算）'}` : null,
       user.age != null      ? `年齡：${user.age} 歲` : null,
       user.height != null   ? `身高：${user.height} cm` : null,
       user.weight != null   ? `體重：${user.weight} kg` : null,
@@ -344,6 +382,11 @@ app.post('/coach/chat', requireAuth, async (req, res) => {
       user.target != null   ? `每日熱量目標：${Math.round(user.target)} kcal` : null,
       `今天已攝取：${Math.round(totals.energy)} kcal（蛋白質 ${totals.protein.toFixed(1)}g / 碳水 ${totals.carbs.toFixed(1)}g / 脂肪 ${totals.fat.toFixed(1)}g）`,
       remaining != null ? `今天還剩：${remaining} kcal` : null,
+      '',
+      '=== 過去的紀錄（今天之前）===',
+      '飲食是一個長期的過程：回答時要結合下面這些過去的紀錄看整體趨勢，不要只看今天。',
+      '例如前一天吃超過目標，就看最近幾天的總和，建議接下來幾天每天少吃一點慢慢補回來（每天最多少 300~500 kcal，不要低於基礎代謝），而不是叫使用者隔天不吃。',
+      ...history,
     ].filter(Boolean).join('\n');
 
     // messages 是前端存在本地的對話紀錄（不落地存 DB），每則是 { role: 'user' | 'model', text }——
