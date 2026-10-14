@@ -9,8 +9,9 @@ module.exports = mongoose.model('User', new mongoose.Schema({
   passwordHash: String,
   name:         String,
   avatarKey:    { type: String, default: 'default' }, // 新帳號一律用標準無頭像圖框，不提供內建卡通頭像可選
-  gender:       String,
+  gender:       String, // 'male' | 'female' | 'other'（其他 / 不透露）
   age:          Number,
+  ageSetAt:     String, // 填寫年齡那天（YYYY-MM-DD），App 每滿一年自動把 age +1
   height:       Number,
   weight:       Number,
   activity:     String,
