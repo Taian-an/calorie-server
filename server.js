@@ -11,7 +11,7 @@ const { Queue, QueueEvents, Worker } = require('bullmq');
 const IORedis = require('ioredis');
 const { THAI_FOODS } = require('./thai-foods');
 const { recognizeFood, preprocessImage } = require('./services/foodRecognition');
-const { timezoneOf, localDay, checkQuota, recordUse } = require('./services/usageLimits');
+const { accountTimezone, localDay, checkQuota, recordUse } = require('./services/usageLimits');
 require('dotenv').config();
 
 const User     = require('./models/User');
@@ -354,7 +354,7 @@ app.post('/coach/chat', requireAuth, async (req, res) => {
     const user = await User.findById(req.uid).lean();
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const tz = timezoneOf(req);
+    const tz = await accountTimezone(user, req);
     const quota = await checkQuota(user, 'coach', tz);
     if (!quota.allowed) return res.status(429).json({ error: 'daily_limit', ...quota });
 
@@ -502,7 +502,7 @@ app.post('/analyze', requireAuth, upload.array('images', 5), async (req, res) =>
   if (!files.length && !description) return res.status(400).json({ error: 'Please provide an image or a description' });
 
   const user = await User.findById(req.uid).lean();
-  const quota = await checkQuota(user, 'analyze', timezoneOf(req));
+  const quota = await checkQuota(user, 'analyze', await accountTimezone(user, req));
   if (!quota.allowed) return res.status(429).json({ error: 'daily_limit', ...quota });
 
   let analysis, job;
@@ -537,7 +537,7 @@ app.post('/analyze', requireAuth, upload.array('images', 5), async (req, res) =>
 // GET /usage — 今天各項 AI 功能用了幾次、上限多少，App 用來顯示「今天還剩 3 次」
 app.get('/usage', requireAuth, async (req, res) => {
   const user = await User.findById(req.uid).lean();
-  const tz = timezoneOf(req);
+  const tz = await accountTimezone(user, req);
   const [analyze, coach] = await Promise.all([checkQuota(user, 'analyze', tz), checkQuota(user, 'coach', tz)]);
   res.json({
     plan: analyze.plan,

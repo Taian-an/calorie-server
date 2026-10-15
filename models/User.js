@@ -20,6 +20,9 @@ module.exports = mongoose.model('User', new mongoose.Schema({
   tdee:         Number,
   target:       Number,
   status:       { type: String, default: 'Active' },
+  // Account 的時區（GLOSSARY「Time zone」）：決定一天從哪裡開始，24 小時內只能換一次
+  timezone:          String,
+  timezoneChangedAt: Date,
   // 付費會員：免費版每天辨識 / 教練各 5 次，付費版不限（仍有防濫用上限，見 services/usageLimits.js）。
   // 目前由後台手動開關（demo 帳號、送朋友試用）；之後接 RevenueCat 時，訂閱狀態也寫到這裡
   premium:      { type: Boolean, default: false },
