@@ -205,7 +205,11 @@ app.post('/auth/google', async (req, res) => {
     if (!GOOGLE_CLIENT_IDS.length) return res.status(500).json({ error: 'Google login not configured' });
 
     const ticket = await googleClient.verifyIdToken({ idToken, audience: GOOGLE_CLIENT_IDS });
-    const { sub: googleId, email, name } = ticket.getPayload();
+    const { sub: googleId, email, email_verified: emailVerified, name } = ticket.getPayload();
+    // Account 以 email 識別：Google 沒驗證過的 email 不能拿來建立或接管帳號
+    if (!email || emailVerified !== true) {
+      return res.status(403).json({ error: 'Your Google account email is not verified' });
+    }
 
     let user = await User.findOne({ googleId });
     if (!user) {
