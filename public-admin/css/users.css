@@ -279,3 +279,15 @@ tr:hover{
 td button{
     white-space:nowrap;
 }
+
+/* 方案標籤：Free 灰、Premium 金 */
+.plan-tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    background: #EEEEEE;
+    color: #555555;
+}
+
+.plan-tag.premium { background: #FFF4D6; color: #9A6700; font-weight: 600; }

@@ -20,7 +20,7 @@ async function loadDashboard() {
     table.innerHTML = '';
 
     if (!recentUsers.length) {
-        table.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#999;">${t('No users yet')}</td></tr>`;
+        table.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#999;">${t('No users yet')}</td></tr>`;
         return;
     }
 
@@ -30,6 +30,7 @@ async function loadDashboard() {
             <td>${escapeHtml(user.userId)}</td>
             <td>${escapeHtml(user.name ?? '—')}</td>
             <td>${escapeHtml(user.email)}</td>
+            <td>${planTag(user)}</td>
         `;
         table.appendChild(row);
     });

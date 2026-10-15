@@ -9,7 +9,8 @@ let sortDir = -1; // 1 = 小到大 / A→Z，-1 = 大到小 / Z→A
 // ID 是 u1001、u1002…，用 numeric 比較才會 u1002 < u1010（純字串比較會排錯）；
 // 空值一律排最後，不管升冪降冪
 function compareUsers(a, b) {
-    const va = a[sortKey], vb = b[sortKey];
+    const va = sortKey === 'plan' ? planOf(a) : a[sortKey];
+    const vb = sortKey === 'plan' ? planOf(b) : b[sortKey];
     const emptyA = va == null || va === '', emptyB = vb == null || vb === '';
     if (emptyA || emptyB) return emptyA === emptyB ? 0 : emptyA ? 1 : -1;
     const result = sortKey === 'createdAt'
@@ -73,6 +74,7 @@ function renderUsers() {
             <td>${escapeHtml(user.userId)}</td>
             <td>${escapeHtml(user.name)}</td>
             <td>${escapeHtml(user.email)}</td>
+            <td>${planTag(user)}</td>
             <td>${escapeHtml(formatDate(user.createdAt))}</td>
             <td>
                 <button class="edit-btn">${t('Edit')}</button>

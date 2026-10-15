@@ -6,6 +6,16 @@ function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// 使用者的 Plan（GLOSSARY）：premium 為 true 就是 Premium，否則 Free
+function planOf(user) {
+    return user.premium === true ? 'Premium' : 'Free';
+}
+
+function planTag(user) {
+    const plan = planOf(user);
+    return `<span class="plan-tag ${plan.toLowerCase()}">${escapeHtml(t(plan))}</span>`;
+}
+
 function getAdminToken() {
   return localStorage.getItem(ADMIN_TOKEN_KEY);
 }
