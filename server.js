@@ -13,7 +13,7 @@ const { THAI_FOODS } = require('./thai-foods');
 const { recognizeFood, preprocessImage } = require('./services/foodRecognition');
 const { accountTimezone, localDay, checkQuota, recordUse } = require('./services/usageLimits');
 const { deleteAccount } = require('./services/accountDeletion');
-const { buildProfileUpdate, createPutMeHandler } = require('./services/profileUpdate');
+const { buildProfileUpdate, createPutMeHandler, createGoalPreviewHandler } = require('./services/profileUpdate');
 require('dotenv').config();
 
 const User     = require('./models/User');
@@ -264,6 +264,10 @@ app.get('/me', requireAuth, async (req, res) => {
 // 更新 profile：欄位驗證、Goal plan 驗證、重算 bmr / tdee / target 都在 services/profileUpdate.js。
 // 被擋下時回 400（欄位不合法）或 422（Goal plan 不通過，附 status / errors / suggestion）
 app.put('/me', requireAuth, createPutMeHandler({ User, todayFor: userTodayKey, publicProfile }));
+
+// 試算 Goal plan（不存檔）：App 的「檢查我的目標」用。回傳是否允許、原因、建議日期、每日目標和三大營養素。
+// 真正存檔還是走 PUT /me，那邊會再驗證一次
+app.post('/goals/validate', requireAuth, createGoalPreviewHandler({ User, todayFor: userTodayKey }));
 
 // DELETE /me — 刪除帳號（App Store 審核準則 5.1.1(v)：App 裡能註冊，就必須能在 App 裡刪除帳號）。
 // 刪除範圍見 services/accountDeletion.js，跟後台刪除帳號共用同一套

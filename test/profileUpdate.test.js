@@ -147,3 +147,61 @@ test('HTTP: unknown user gives 404', async () => {
     assert.equal(res.status, 404);
   } finally { server.close(); }
 });
+
+/* ── POST /goals/validate (dry run) ─────────────────────────────── */
+
+const { previewGoalPlan, createGoalPreviewHandler } = require('../services/profileUpdate');
+
+test('preview: a valid plan returns the target and macros and saves nothing', () => {
+  const current = { ...onboarded };
+  const r = previewGoalPlan(current, { goal: 'cut', targetWeight: 65, goalDate: addDays(TODAY, 91) }, TODAY);
+  assert.equal(r.httpStatus, 200);
+  assert.equal(r.body.allowed, true);
+  assert.equal(r.body.status, 'valid');
+  assert.ok(Math.abs(r.body.plan.target - (tdeeOf(onboarded) - 5 * 7700 / 91)) < 1e-9);
+  const m = r.body.plan.macros;
+  assert.ok(Math.abs(m.protein * 4 + m.carbs * 4 + m.fat * 9 - r.body.plan.target) <= 4.5);
+  assert.equal(r.body.checkedFor, TODAY);
+  assert.deepEqual(current, onboarded); // untouched
+});
+
+test('preview: a changed weight and activity are used for the check', () => {
+  const r = previewGoalPlan(onboarded, { goal: 'cut', targetWeight: 65, goalDate: addDays(TODAY, 91), weight: 80, activity: 'very' }, TODAY);
+  assert.equal(r.body.plan.weight, 80);
+  assert.ok(Math.abs(r.body.plan.tdee - tdeeOf({ ...onboarded, weight: 80, activity: 'very' })) < 1e-9);
+});
+
+test('preview: blocked plans return reasons and a suggestion but no target', () => {
+  const r = previewGoalPlan(onboarded, { goal: 'cut', targetWeight: 60, goalDate: addDays(TODAY, 30) }, TODAY);
+  assert.equal(r.body.allowed, false);
+  assert.equal(r.body.plan.target, undefined);
+  assert.ok(r.body.suggestion.targetDate);
+  const wrongWay = previewGoalPlan(onboarded, { goal: 'bulk', targetWeight: 65, goalDate: addDays(TODAY, 91) }, TODAY);
+  assert.equal(wrongWay.body.status, 'invalid_input');
+});
+
+test('preview: malformed fields give 400; an incomplete profile is insufficient_information', () => {
+  assert.equal(previewGoalPlan(onboarded, { weight: 'x' }, TODAY).httpStatus, 400);
+  const r = previewGoalPlan({ name: 'New' }, { goal: 'cut', targetWeight: 60, goalDate: addDays(TODAY, 300) }, TODAY);
+  assert.equal(r.body.status, 'insufficient_information');
+});
+
+test('HTTP: POST /goals/validate answers without saving', async () => {
+  const users = new Map([['u1', { _id: 'u1', ...onboarded }]]);
+  const User = { async findById(id) { return users.get(id) ?? null; } };
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => { req.uid = 'u1'; next(); });
+  app.post('/goals/validate', createGoalPreviewHandler({ User, todayFor: async () => TODAY }));
+  const server = await new Promise(resolve => { const s = app.listen(0, () => resolve(s)); });
+  try {
+    const res = await fetch(`http://127.0.0.1:${server.address().port}/goals/validate`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ goal: 'cut', targetWeight: 65, goalDate: addDays(TODAY, 91) }),
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.allowed, true);
+    assert.equal(users.get('u1').goal, 'maintain'); // nothing saved
+  } finally { server.close(); }
+});

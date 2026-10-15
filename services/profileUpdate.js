@@ -1,5 +1,5 @@
 const {
-  validateGoal, goalInputFromProfile, resolveDailyTarget, calcBmr, activityFactor,
+  validateGoal, goalInputFromProfile, resolveDailyTarget, calcBmr, activityFactor, calculateMacroTargets,
   isValidDateKey, GOAL_TYPES, ACTIVITY_FACTORS, GOAL_POLICY,
 } = require('./goalPlan');
 
@@ -92,6 +92,62 @@ function buildProfileUpdate(current, body, todayKey) {
   return { ok: true, patch: { ...patch, goal: withEnergy.goal, bmr, tdee, target } };
 }
 
+/*
+ * previewGoalPlan(current, body, todayKey): what saving this Goal plan would do, without saving.
+ * body may change the plan (goal, targetWeight, goalDate) and the inputs it depends on (weight, activity).
+ *   → { httpStatus: 400, body }   a field has the wrong type or range
+ *   → { httpStatus: 200, body }   { allowed, status, errors, warnings, suggestion?, estimate?,
+ *                                   plan: { goal, weight, targetWeight, goalDate, activity, tdee, target, macros } }
+ * The plan is always checked here, changed or not, because the user is asking for a review.
+ */
+const PREVIEW_FIELDS = ['goal', 'targetWeight', 'goalDate', 'weight', 'activity'];
+function previewGoalPlan(current, body, todayKey) {
+  const picked = {};
+  for (const f of PREVIEW_FIELDS) if (body?.[f] !== undefined) picked[f] = body[f];
+  const built = buildProfileUpdate({}, picked, todayKey); // field checks only: {} has no body data
+  if (!built.ok) return { httpStatus: built.httpStatus, body: built.body };
+
+  const merged = { ...current, ...built.patch };
+  if (!hasBody(merged)) {
+    return { httpStatus: 200, body: { allowed: false, status: 'insufficient_information', errors: [{ code: 'PROFILE_INCOMPLETE' }], warnings: [] } };
+  }
+  const bmr = calcBmr(merged.gender, merged.weight, merged.height, merged.age);
+  const tdee = bmr * activityFactor(merged.activity);
+  const withEnergy = { ...merged, bmr, tdee, goal: GOAL_TYPES.includes(merged.goal) ? merged.goal : 'maintain' };
+  if (withEnergy.goal === 'maintain') withEnergy.goalDate = null;
+
+  const result = validateGoal(goalInputFromProfile(withEnergy, todayKey));
+  const plan = {
+    goal: withEnergy.goal, weight: withEnergy.weight, targetWeight: withEnergy.targetWeight ?? null,
+    goalDate: withEnergy.goalDate ?? null, activity: withEnergy.activity, tdee,
+  };
+  if (result.allowed) {
+    plan.target = resolveDailyTarget(withEnergy, todayKey).target;
+    plan.macros = calculateMacroTargets({ calories: plan.target, weightKg: withEnergy.weight, goalType: withEnergy.goal });
+  }
+  return {
+    httpStatus: 200,
+    body: {
+      allowed: result.allowed, status: result.status, errors: result.errors, warnings: result.warnings,
+      ...(result.estimate ? { estimate: result.estimate } : {}),
+      ...(result.suggestion ? { suggestion: { days: result.suggestion.days, targetDate: result.suggestion.targetDate } } : {}),
+      plan,
+      checkedFor: todayKey, // the review is only good for this Day; a later save is checked again anyway
+    },
+  };
+}
+
+// POST /goals/validate handler (dry run, nothing is saved).
+function createGoalPreviewHandler({ User, todayFor }) {
+  return async (req, res) => {
+    const user = await User.findById(req.uid);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const current = typeof user.toObject === 'function' ? user.toObject() : user;
+    const result = previewGoalPlan(current, req.body ?? {}, await todayFor(user, req));
+    res.status(result.httpStatus).json(result.body);
+  };
+}
+
 // PUT /me handler. Dependencies are passed in so tests can run it against an in-memory store.
 function createPutMeHandler({ User, todayFor, publicProfile }) {
   return async (req, res) => {
@@ -105,4 +161,4 @@ function createPutMeHandler({ User, todayFor, publicProfile }) {
   };
 }
 
-module.exports = { CLIENT_FIELDS, buildProfileUpdate, createPutMeHandler };
+module.exports = { CLIENT_FIELDS, buildProfileUpdate, createPutMeHandler, previewGoalPlan, createGoalPreviewHandler };
