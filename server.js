@@ -277,8 +277,8 @@ app.get('/logs', requireAuth, async (req, res) => {
   for (const l of logs) {
     out[l.date] = {
       weight: l.weight, target: l.target,
-      meals: (l.meals ?? []).map(({ name, energy, protein, carbs, fat, mealType, time }) =>
-        ({ name, energy, protein, carbs, fat, mealType, time })),
+      // 整筆回傳（含克數、微量營養素）：App 之後會把整天 PUT 回來，少帶的欄位會在那時被永久覆蓋掉
+      meals: (l.meals ?? []).map(({ _id, ...meal }) => meal),
     };
   }
   res.json(out);
