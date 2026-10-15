@@ -24,6 +24,9 @@ const adminRoutes = require('./routes/adminRoutes');
 const { loginLimiter, registerLimiter } = require('./middleware/rateLimiter');
 
 const app    = express();
+// nginx 在本機轉發，並在 X-Forwarded-For 帶上真實 IP；只信任來自 loopback 的轉發，
+// 否則 req.ip 永遠是 127.0.0.1，所有人共用同一份登入限流額度
+app.set('trust proxy', 'loopback');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 app.use(cors());

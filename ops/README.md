@@ -17,6 +17,7 @@ Server-side settings not captured in files:
 
 ## Pending on the production VM
 
+- **Copy the two nginx snippets to the VM** (`/etc/nginx/snippets/`) and reload nginx. They now pass `X-Forwarded-For`; without it every request reaches Node as `127.0.0.1` and all users share one login rate limit.
 - **Change the admin password first thing after the VM is back.** Older builds created `admin` / `admin123` automatically, and the production admin may still use it. Log in to `/admin` → Settings and set a strong password.
 
 To restore nginx on a rebuilt VM: copy `nginx-calorie.conf` to `/etc/nginx/sites-available/calorie` and the two snippets to `/etc/nginx/snippets/calorie-app-locations.conf` and `calorie-api.conf`, symlink the site into `sites-enabled`, run `sudo certbot --nginx` for the domains, then `sudo nginx -t && sudo systemctl reload nginx`.
