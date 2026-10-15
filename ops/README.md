@@ -13,6 +13,7 @@ Server-side settings not captured in files:
 
 - MongoDB listens on `127.0.0.1` only (`/etc/mongod.conf` `bindIp`). Connect with Compass over an SSH tunnel.
 - The production `.env` is at `/var/www/calorie-backend/.env` and is never deployed or committed.
+- The VM boots kernel `6.17.0-1022-azure` on purpose (`GRUB_DEFAULT` in `/etc/default/grub`), and the `linux-*-azure` meta-packages are on `apt-mark hold`. MongoDB 8.0.32 refuses to start on kernels 6.19 and newer (SERVER-121912); an automatic update to 7.0 took the database down on 2026-10-15. Upgrade MongoDB to a release that supports the newer kernel before removing the hold.
 - The admin panel has no default password. On an empty database the server creates the `admin` account only if `ADMIN_INITIAL_PASSWORD` (12+ characters) is set; remove the variable once the account exists.
 
 ## Pending on the production VM
