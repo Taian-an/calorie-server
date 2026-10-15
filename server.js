@@ -12,6 +12,7 @@ const IORedis = require('ioredis');
 const { THAI_FOODS } = require('./thai-foods');
 const { recognizeFood, preprocessImage } = require('./services/foodRecognition');
 const { accountTimezone, localDay, checkQuota, recordUse } = require('./services/usageLimits');
+const { deleteAccount } = require('./services/accountDeletion');
 require('dotenv').config();
 
 const User     = require('./models/User');
@@ -250,15 +251,10 @@ app.put('/me', requireAuth, async (req, res) => {
 });
 
 // DELETE /me — 刪除帳號（App Store 審核準則 5.1.1(v)：App 裡能註冊，就必須能在 App 裡刪除帳號）。
-// 帳號、所有日誌、辨識歷史全部刪除；意見回饋的內容保留給後台看，但拿掉 userId 和留的 email，追不回是誰寫的
+// 刪除範圍見 services/accountDeletion.js，跟後台刪除帳號共用同一套
 app.delete('/me', requireAuth, async (req, res) => {
   try {
-    await Promise.all([
-      DailyLog.deleteMany({ userId: req.uid }),
-      Analysis.deleteMany({ userId: req.uid }),
-      Feedback.updateMany({ userId: req.uid }, { $set: { userId: null }, $unset: { email: '' } }),
-    ]);
-    await User.deleteOne({ _id: req.uid });
+    await deleteAccount(req.uid);
     console.log('[delete account]', req.uid);
     res.json({ ok: true });
   } catch (err) {

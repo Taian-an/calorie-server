@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const Admin = require('../models/Admin');
 const User = require('../models/User');
 const DailyLog = require('../models/DailyLog');
+const { deleteAccount } = require('../services/accountDeletion');
 
 // premium 只有後台能改（App 的 PUT /me 用的是 server.js 的 PROFILE_FIELDS，刻意不含 premium，使用者不能自己升級）
 const USER_FIELDS = ['name', 'email', 'status', 'premium', 'gender', 'age', 'height', 'weight', 'activity', 'goal', 'bmr', 'tdee', 'target'];
@@ -100,10 +101,15 @@ async function updateUser(req, res) {
   }
 }
 
+// 跟使用者在 App 裡刪除帳號一樣，連同所有紀錄一起刪（services/accountDeletion.js）
 async function deleteUser(req, res) {
-  const user = await User.findByIdAndDelete(req.params.id);
-  if (!user) return res.status(404).json({ success: false, error: 'User not found' });
-  res.json({ success: true, message: 'User deleted' });
+  try {
+    if (!(await deleteAccount(req.params.id))) return res.status(404).json({ success: false, error: 'User not found' });
+    res.json({ success: true, message: 'User deleted' });
+  } catch (err) {
+    console.error('[admin deleteUser]', err.message);
+    res.status(500).json({ success: false, error: 'Failed to delete user' });
+  }
 }
 
 async function getMe(req, res) {
