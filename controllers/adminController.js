@@ -7,7 +7,7 @@ const DailyLog = require('../models/DailyLog');
 const { deleteAccount } = require('../services/accountDeletion');
 
 // premium 只有後台能改（App 的 PUT /me 用的是 server.js 的 PROFILE_FIELDS，刻意不含 premium，使用者不能自己升級）
-const USER_FIELDS = ['name', 'email', 'status', 'premium', 'gender', 'age', 'height', 'weight', 'activity', 'goal', 'bmr', 'tdee', 'target'];
+const USER_FIELDS = ['name', 'email', 'premium', 'gender', 'age', 'height', 'weight', 'activity', 'goal', 'bmr', 'tdee', 'target'];
 
 // 白名單過濾，跟 App 端的 publicProfile() 同一個原則：passwordHash 永遠不可以吐給前端
 function publicUser(user) {
@@ -64,7 +64,7 @@ async function getUserLogs(req, res) {
 // 一次性回傳給管理員自行轉交給使用者（沒有寄信系統，先用這個做法頂著）
 async function addUser(req, res) {
   try {
-    const { name, email, status } = req.body;
+    const { name, email } = req.body;
     const trimmedEmail = (email ?? '').trim().toLowerCase();
     if (!trimmedEmail) return res.status(400).json({ success: false, error: 'Email is required' });
     if (await User.findOne({ email: trimmedEmail })) {
@@ -77,7 +77,6 @@ async function addUser(req, res) {
       userId: 'u' + (1001 + count),
       email: trimmedEmail,
       name,
-      status: status || 'Active',
       passwordHash: await bcrypt.hash(tempPassword, 10),
     });
 

@@ -73,7 +73,6 @@ function renderUsers() {
             <td>${escapeHtml(user.userId)}</td>
             <td>${escapeHtml(user.name)}</td>
             <td>${escapeHtml(user.email)}</td>
-            <td>${escapeHtml(user.status ? t(user.status) : '')}</td>
             <td>${escapeHtml(formatDate(user.createdAt))}</td>
             <td>
                 <button class="edit-btn">${t('Edit')}</button>

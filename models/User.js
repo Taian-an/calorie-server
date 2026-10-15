@@ -19,7 +19,6 @@ module.exports = mongoose.model('User', new mongoose.Schema({
   bmr:          Number,
   tdee:         Number,
   target:       Number,
-  status:       { type: String, default: 'Active' },
   // Account 的時區（GLOSSARY「Time zone」）：決定一天從哪裡開始，24 小時內只能換一次
   timezone:          String,
   timezoneChangedAt: Date,

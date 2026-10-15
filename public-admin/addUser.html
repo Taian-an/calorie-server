@@ -17,11 +17,6 @@
                 <label>Email</label>
                 <input id="email" placeholder="Enter email">
 
-                <label>Status</label>
-                <select id="status">
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                </select>
 
 
                 <div class="button-group">
@@ -47,8 +42,7 @@
             async function addUser(){
                 const user = {
                     name: document.getElementById("name").value,
-                    email: document.getElementById("email").value,
-                    status: document.getElementById("status").value
+                    email: document.getElementById("email").value
                 };
 
                 const response = await adminFetch("/admin/users",{
