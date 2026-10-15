@@ -23,8 +23,8 @@ test('valid cut: 5 kg in 13 weeks', () => {
   assert.ok(Math.abs(r.estimate.estimatedDailyCalories - (2100 - 5 * 7700 / 91)) < 1e-9);
 });
 
-test('valid bulk within 0.25 %/week', () => {
-  // 70 kg × 0.25 % = 0.175 kg/week → 2 kg needs ≥ 80 days.
+test('valid bulk at a reasonable pace', () => {
+  // 2 kg in 84 days at 70 kg = 0.24 %/week, well under the 0.75 % review line.
   const r = validateGoal({ ...base, goalType: 'bulk', targetWeightKg: 72, targetDate: inDays(84) });
   assert.equal(r.allowed, true, JSON.stringify(r));
   assert.ok(r.estimate.dailyAdjustmentKcal > 0);
@@ -114,11 +114,52 @@ test('aggressive-but-allowed warning starts above 75 % of the limit', () => {
   assert.equal(brisk.status, STATUS.WARNING);
 });
 
-test('weekly rate limit for bulking: 0.25 %', () => {
-  // 70 kg × 0.25 % = 0.175 kg/week → 1.75 kg in exactly 70 days.
-  assert.equal(validateGoal({ ...base, goalType: 'bulk', targetWeightKg: 71.75, targetDate: inDays(70) }).allowed, true);
-  const over = validateGoal({ ...base, goalType: 'bulk', targetWeightKg: 71.75, targetDate: inDays(69) });
-  assert.equal(over.status, STATUS.GOAL_TOO_AGGRESSIVE);
+// Bulking tiers (weekly gain as % of body weight): ≤ 0.75 % reasonable, 0.75–1.0 % needs review,
+// above 1.0 % extreme. The rate alone never blocks a bulk; the surplus limit (500 kcal) still does.
+// A 40 kg person keeps the surplus under 500 kcal up to ~1.16 %/week, so every tier is reachable.
+const light = { ...base, goalType: 'bulk', currentWeightKg: 40, tdee: 1800 };
+
+test('bulking up to 0.75 %/week is reasonable', () => {
+  // 40 kg × 0.75 % = 0.3 kg/week → 1.2 kg in exactly 28 days.
+  const r = validateGoal({ ...light, targetWeightKg: 41.2, targetDate: inDays(28) });
+  assert.ok(Math.abs(r.estimate.weeklyRatePercent - 0.75) < 1e-9);
+  assert.equal(r.status, STATUS.VALID);
+  assert.deepEqual(warnCodes(r), []);
+});
+
+test('bulking above 0.75 % up to 1.0 %/week needs review but is allowed', () => {
+  const brisk = validateGoal({ ...light, targetWeightKg: 41.2, targetDate: inDays(26) }); // 0.81 %
+  assert.equal(brisk.status, STATUS.WARNING);
+  assert.equal(brisk.allowed, true);
+  assert.deepEqual(warnCodes(brisk), [CODES.RATE_AGGRESSIVE]);
+  assert.equal(brisk.warnings[0].params.reviewWeeklyPercent, 0.75);
+  const atOne = validateGoal({ ...light, targetWeightKg: 41.6, targetDate: inDays(28) }); // exactly 1.0 %
+  assert.equal(atOne.status, STATUS.WARNING);
+  assert.deepEqual(warnCodes(atOne), [CODES.RATE_AGGRESSIVE]);
+});
+
+test('bulking above 1.0 %/week is extreme, not blocked by the rate alone', () => {
+  const r = validateGoal({ ...light, targetWeightKg: 41.7, targetDate: inDays(28) }); // 1.06 %, ≈ 467 kcal/day
+  assert.equal(r.status, STATUS.WARNING);
+  assert.equal(r.allowed, true);
+  assert.deepEqual(codes(r), []);
+  assert.deepEqual(warnCodes(r), [CODES.RATE_EXTREME]);
+  assert.equal(r.warnings[0].params.extremeWeeklyPercent, 1.0);
+});
+
+test('an extreme bulk is still blocked by the surplus limit, and stays flagged as extreme', () => {
+  // 70 kg, 3 kg in 28 days = 0.75 kg/week (1.07 %) → 825 kcal/day surplus.
+  const r = validateGoal({ ...base, goalType: 'bulk', targetWeightKg: 73, targetDate: inDays(28) });
+  assert.equal(r.status, STATUS.CALORIE_LIMIT_EXCEEDED);
+  assert.deepEqual(codes(r), [CODES.SURPLUS_TOO_LARGE]);
+  assert.ok(warnCodes(r).includes(CODES.RATE_EXTREME));
+  assert.ok(r.suggestion && validateGoal({ ...base, goalType: 'bulk', targetWeightKg: 73, targetDate: r.suggestion.targetDate }).allowed);
+});
+
+test('cutting keeps its hard limit: no RATE_EXTREME, RATE_TOO_FAST above 1 %', () => {
+  const over = validateGoal({ ...base, tdee: 4000, targetWeightKg: 63, targetDate: inDays(60) });
+  assert.deepEqual(codes(over), [CODES.RATE_TOO_FAST]);
+  assert.ok(!warnCodes(over).includes(CODES.RATE_EXTREME));
 });
 
 test('calorie minimum: below is rejected, at the minimum passes', () => {
@@ -142,7 +183,7 @@ test('a plan whose calories would be zero or negative is rejected, never clamped
 });
 
 test('large bulking surplus is flagged, not approved', () => {
-  // Heavy person: rate allows it, but 0.25 % of 200 kg = 0.5 kg/week ≈ 550 kcal/day > 500.
+  // Heavy person: 0.25 %/week is a reasonable rate, but of 200 kg it is 0.5 kg/week ≈ 550 kcal/day > 500.
   const r = validateGoal({ ...base, goalType: 'bulk', currentWeightKg: 200, targetWeightKg: 205, tdee: 4000, targetDate: inDays(70) });
   assert.equal(r.status, STATUS.CALORIE_LIMIT_EXCEEDED);
   assert.deepEqual(codes(r), [CODES.SURPLUS_TOO_LARGE]);

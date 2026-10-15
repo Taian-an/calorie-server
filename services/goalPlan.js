@@ -27,12 +27,16 @@ const GOAL_POLICY = Object.freeze({
   }),
   // Within this many kg of the current weight a Goal weight counts as "the same".
   maintainToleranceKg: 0.3,
-  // Fastest accepted weekly change, as % of current body weight. A plan above warnFraction of
-  // the maximum is allowed but flagged as aggressive.
+  // Weekly change as % of current body weight:
+  //   ≤ reviewWeeklyPercent                reasonable
+  //   above it, up to the next line        allowed, but needs review (RATE_AGGRESSIVE)
+  //   above maxWeeklyPercent               rejected (RATE_TOO_FAST)
+  //   above extremeWeeklyPercent           allowed by the rate itself but flagged as extreme
+  //                                        (RATE_EXTREME); the calorie limits still decide
+  // Building muscle has no hard rate limit; the surplus limit below usually ends it first.
   rate: Object.freeze({
-    cut: Object.freeze({ maxWeeklyPercent: 1.0 }),
-    bulk: Object.freeze({ maxWeeklyPercent: 0.25 }),
-    warnFraction: 0.75,
+    cut: Object.freeze({ reviewWeeklyPercent: 0.75, maxWeeklyPercent: 1.0 }),
+    bulk: Object.freeze({ reviewWeeklyPercent: 0.75, extremeWeeklyPercent: 1.0 }),
   }),
   calories: Object.freeze({
     // Lowest daily Target the app will plan for, by sex. 'other' (not stated) uses the midpoint.
@@ -88,6 +92,7 @@ const CODES = Object.freeze({
   SURPLUS_TOO_LARGE: 'SURPLUS_TOO_LARGE',
   // warnings
   RATE_AGGRESSIVE: 'RATE_AGGRESSIVE',
+  RATE_EXTREME: 'RATE_EXTREME',
   MAINTAIN_TARGET_IGNORED: 'MAINTAIN_TARGET_IGNORED',
   // suggestion
   NO_FEASIBLE_TIMELINE: 'NO_FEASIBLE_TIMELINE',
@@ -265,11 +270,12 @@ function validateGoal(input, policy = GOAL_POLICY, { withSuggestion = true } = {
   // C. Rate and calories
   const numbers = calculateGoalNumbers({ goalType, currentWeightKg, targetWeightKg, days, tdee }, policy);
   const estimate = { ...numbers, calorieMinimum: minimum };
-  const maxPercent = policy.rate[goalType].maxWeeklyPercent;
+  const rule = policy.rate[goalType];
+  const pct = numbers.weeklyRatePercent;
   let status = STATUS.VALID;
 
-  if (numbers.weeklyRatePercent > maxPercent + 1e-9) {
-    errors.push(issue(CODES.RATE_TOO_FAST, { maxWeeklyPercent: maxPercent }));
+  if (rule.maxWeeklyPercent != null && pct > rule.maxWeeklyPercent + 1e-9) {
+    errors.push(issue(CODES.RATE_TOO_FAST, { maxWeeklyPercent: rule.maxWeeklyPercent }));
     status = STATUS.GOAL_TOO_AGGRESSIVE;
   }
   if (goalType === 'cut' && numbers.estimatedDailyCalories < minimum) {
@@ -280,10 +286,16 @@ function validateGoal(input, policy = GOAL_POLICY, { withSuggestion = true } = {
     errors.push(issue(CODES.SURPLUS_TOO_LARGE, { maxSurplus: policy.calories.maxSurplusKcal }));
     if (status === STATUS.VALID) status = STATUS.CALORIE_LIMIT_EXCEEDED;
   }
-  if (status === STATUS.VALID && numbers.weeklyRatePercent > maxPercent * policy.rate.warnFraction) {
-    warnings.push(issue(CODES.RATE_AGGRESSIVE, { maxWeeklyPercent: maxPercent }));
-    status = STATUS.WARNING;
+  // An extreme rate is always flagged, even when another rule already blocks the plan.
+  if (rule.extremeWeeklyPercent != null && pct > rule.extremeWeeklyPercent + 1e-9) {
+    warnings.push(issue(CODES.RATE_EXTREME, { extremeWeeklyPercent: rule.extremeWeeklyPercent }));
+  } else if (status === STATUS.VALID && pct > rule.reviewWeeklyPercent + 1e-9) {
+    warnings.push(issue(CODES.RATE_AGGRESSIVE, {
+      reviewWeeklyPercent: rule.reviewWeeklyPercent,
+      ...(rule.maxWeeklyPercent != null ? { maxWeeklyPercent: rule.maxWeeklyPercent } : {}),
+    }));
   }
+  if (status === STATUS.VALID && warnings.length) status = STATUS.WARNING;
 
   if (status === STATUS.VALID || status === STATUS.WARNING || !withSuggestion) return done(status, { estimate });
 
@@ -296,7 +308,7 @@ function validateGoal(input, policy = GOAL_POLICY, { withSuggestion = true } = {
 
 /*
  * The shortest timeline that meets every limit for this goal:
- *   - weekly rate:  days ≥ |Δkg| × 7 / (maxWeeklyPercent% × current weight)
+ *   - weekly rate:  days ≥ |Δkg| × 7 / (maxWeeklyPercent% × current weight), when there is a maximum
  *   - cutting:      days ≥ |Δkg| × 7700 / (TDEE − calorie minimum)
  *   - bulking:      days ≥ |Δkg| × 7700 / max surplus
  * The stricter one wins, it is checked again with validateGoal, and it is offered only if it passes.
@@ -310,8 +322,8 @@ function suggestFeasibleTimeline(input, policy = GOAL_POLICY) {
     return { ok: false, reason: 'insufficient_information' };
   }
   const deltaKg = Math.abs(targetWeightKg - currentWeightKg);
-  const maxWeeklyKg = (policy.rate[goalType].maxWeeklyPercent / 100) * currentWeightKg;
-  let days = Math.ceil((deltaKg * 7) / maxWeeklyKg);
+  const maxPercent = policy.rate[goalType].maxWeeklyPercent;
+  let days = maxPercent != null ? Math.ceil((deltaKg * 7) / ((maxPercent / 100) * currentWeightKg)) : 0;
 
   if (goalType === 'cut') {
     const room = tdee - minimum;
@@ -375,8 +387,11 @@ function resolveDailyTarget(p, todayKey, policy = GOAL_POLICY) {
   if (!isNum(tdee)) return { target: null, goalChange: 0, planStatus: 'no_plan', validation: null };
   if (p.goal !== 'cut' && p.goal !== 'bulk') return finish(0, 'maintain', null);
 
+  // Fallback pace: the hard maximum, or the reasonable ceiling when there is none (building muscle).
   const safeMax = () => {
-    const ratePerDay = ((policy.rate[p.goal].maxWeeklyPercent / 100) * p.weight * policy.kcalPerKg) / 7;
+    const rule = policy.rate[p.goal];
+    const percent = rule.maxWeeklyPercent ?? rule.reviewWeeklyPercent;
+    const ratePerDay = ((percent / 100) * p.weight * policy.kcalPerKg) / 7;
     return p.goal === 'cut'
       ? Math.max(0, Math.min(ratePerDay, tdee - minimum))
       : Math.min(ratePerDay, policy.calories.maxSurplusKcal);
