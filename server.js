@@ -118,7 +118,7 @@ const ANALYZE_WAIT_MS = Number(process.env.ANALYZE_WAIT_MS) || 8000;
 
 /* ===== Auth ===== */
 const PROFILE_FIELDS = [
-  'name', 'avatarKey', 'gender', 'age', 'ageSetAt', 'birthday', 'height', 'weight', 'targetWeight',
+  'name', 'avatarKey', 'gender', 'age', 'ageSetAt', 'birthday', 'height', 'weight', 'targetWeight', 'goalMonths',
   'activity', 'goal', 'bmr', 'tdee', 'target', 'targetAdjustment', 'targetAdjustedAt', 'lastAdjustment',
 ];
 

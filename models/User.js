@@ -21,6 +21,7 @@ module.exports = mongoose.model('User', new mongoose.Schema({
   target:       Number,
   birthday:     String, // YYYY-MM-DD，有填的話 age 由生日算出
   targetWeight: Number, // 目標體重（kg），App 依目前體重比較決定 goal
+  goalMonths:   Number, // 預計幾個月達到目標體重（問卷填的，個人頁可改）
   // Adaptive adjustment（見 GLOSSARY）：依 7 日平均體重趨勢對目標熱量做的累計微調（kcal）
   targetAdjustment: Number,
   targetAdjustedAt: String, // 最近一次調整的 Day（YYYY-MM-DD）
