@@ -71,14 +71,18 @@ async function seedFoods() {
   }
 }
 
-// 啟動時一次性建立預設後台管理員帳號（僅供本機/課程 demo，正式環境請盡快從後台改密碼）
-const DEFAULT_ADMIN_PASSWORD = 'admin123';
+// 沒有任何管理員時，用 ADMIN_INITIAL_PASSWORD 建立第一個 admin 帳號。
+// 不給預設密碼：沒設這個環境變數就不建立，避免正式環境留著人人知道的密碼。
 async function seedAdmin() {
   try {
-    if (await Admin.countDocuments() === 0) {
-      await Admin.create({ username: 'admin', passwordHash: await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10) });
-      console.log(`Seeded default admin account (username: admin, password: ${DEFAULT_ADMIN_PASSWORD}) — 請盡快登入後台修改密碼`);
+    if (await Admin.countDocuments() > 0) return;
+    const password = process.env.ADMIN_INITIAL_PASSWORD;
+    if (!password || password.length < 12) {
+      console.warn('[seedAdmin] No admin account exists. Set ADMIN_INITIAL_PASSWORD (12+ characters) and restart to create one.');
+      return;
     }
+    await Admin.create({ username: 'admin', passwordHash: await bcrypt.hash(password, 10) });
+    console.log('[seedAdmin] Created the admin account from ADMIN_INITIAL_PASSWORD. Remove the variable from .env now.');
   } catch (err) {
     console.error('[seedAdmin]', err.message);
   }
