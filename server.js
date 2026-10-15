@@ -14,6 +14,7 @@ const { recognizeFood, preprocessImage } = require('./services/foodRecognition')
 const { accountTimezone, localDay, checkQuota, recordUse } = require('./services/usageLimits');
 const { deleteAccount } = require('./services/accountDeletion');
 const { buildProfileUpdate, createPutMeHandler, createGoalPreviewHandler } = require('./services/profileUpdate');
+const { validateRegisterInput, isDuplicateEmailError, EMAIL_TAKEN } = require('./services/registerInput');
 require('dotenv').config();
 
 const User     = require('./models/User');
@@ -166,13 +167,11 @@ function optionalAuth(req, _res, next) {
 // 註冊：可同時帶 profile（把本地資料一起上傳）
 app.post('/auth/register', registerLimiter, async (req, res) => {
   try {
-    const { email, password, profile } = req.body;
-    if (!email?.trim() || !password || password.length < 4) {
-      return res.status(400).json({ error: 'Invalid email or password (min 4 chars)' });
-    }
-    if (await User.findOne({ email: email.trim().toLowerCase() })) {
-      return res.status(409).json({ error: 'Email already registered' });
-    }
+    const { password, profile } = req.body ?? {};
+    const input = validateRegisterInput(req.body);
+    if (!input.ok) return res.status(input.httpStatus).json(input.body);
+    const { email } = input; // trimmed + lower-cased
+    if (await User.findOne({ email })) return res.status(409).json(EMAIL_TAKEN);
     // profile 是前端傳來的本地資料，只能拿白名單裡的欄位，不然亂塞的 key（例如 email/passwordHash）
     // 會透過 spread 蓋掉上面已經驗證過的值 —— 這裡曾經因為前端本地存了一份髒的 profile.username 導致 create 失敗。
     // 跟 PUT /me 一樣過 buildProfileUpdate：驗證欄位、Goal plan，bmr / tdee / target 由後端算
@@ -186,12 +185,13 @@ app.post('/auth/register', registerLimiter, async (req, res) => {
     const count = await User.countDocuments();
     const user = await User.create({
       userId: 'u' + (1001 + count),
-      email: email.trim().toLowerCase(),
+      email,
       passwordHash: await bcrypt.hash(password, 10),
       ...safeProfile,
     });
     res.json({ token: signToken(user), profile: publicProfile(user) });
   } catch (err) {
+    if (isDuplicateEmailError(err)) return res.status(409).json(EMAIL_TAKEN);
     console.error('[register]', err.message);
     res.status(500).json({ error: 'Register failed' });
   }
