@@ -33,10 +33,11 @@ const GOAL_POLICY = Object.freeze({
   //   above maxWeeklyPercent               rejected (RATE_TOO_FAST)
   //   above extremeWeeklyPercent           allowed by the rate itself but flagged as extreme
   //                                        (RATE_EXTREME); the calorie limits still decide
+  // A suggested timeline aims for suggestWeeklyPercent (a comfortably reasonable pace), not the limit.
   // Building muscle has no hard rate limit. Up to the extreme line the rate tier alone decides; only
   // above it do the other rules (the surplus limit) decide whether the plan is blocked.
   rate: Object.freeze({
-    cut: Object.freeze({ reviewWeeklyPercent: 0.75, maxWeeklyPercent: 1.0 }),
+    cut: Object.freeze({ reviewWeeklyPercent: 0.75, maxWeeklyPercent: 1.0, suggestWeeklyPercent: 0.5 }),
     bulk: Object.freeze({ reviewWeeklyPercent: 0.75, extremeWeeklyPercent: 1.0 }),
   }),
   calories: Object.freeze({
@@ -311,7 +312,8 @@ function validateGoal(input, policy = GOAL_POLICY, { withSuggestion = true } = {
 
 /*
  * The shortest timeline that meets every limit for this goal:
- *   - weekly rate:  days ≥ |Δkg| × 7 / (maxWeeklyPercent% × current weight), when there is a maximum
+ *   - weekly rate:  days ≥ |Δkg| × 7 / (suggestWeeklyPercent% × current weight), or maxWeeklyPercent%
+ *                   when there is no suggested pace or it would take longer than the longest timeline
  *   - cutting:      days ≥ |Δkg| × 7700 / (TDEE − calorie minimum)
  *   - bulking:      days ≥ |Δkg| × 7 / (extremeWeeklyPercent% × current weight); at or under that
  *                   line the surplus limit does not apply
@@ -326,8 +328,12 @@ function suggestFeasibleTimeline(input, policy = GOAL_POLICY) {
     return { ok: false, reason: 'insufficient_information' };
   }
   const deltaKg = Math.abs(targetWeightKg - currentWeightKg);
-  const maxPercent = policy.rate[goalType].maxWeeklyPercent;
-  let days = maxPercent != null ? Math.ceil((deltaKg * 7) / ((maxPercent / 100) * currentWeightKg)) : 0;
+  const rule = policy.rate[goalType];
+  const daysAt = percent => Math.ceil((deltaKg * 7) / ((percent / 100) * currentWeightKg));
+  let days = rule.maxWeeklyPercent != null ? daysAt(rule.maxWeeklyPercent) : 0;
+  if (rule.suggestWeeklyPercent != null && daysAt(rule.suggestWeeklyPercent) <= policy.limits.timelineDays.max) {
+    days = Math.max(days, daysAt(rule.suggestWeeklyPercent));
+  }
 
   if (goalType === 'cut') {
     const room = tdee - minimum;

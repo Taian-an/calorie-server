@@ -209,20 +209,26 @@ test('suggested timeline: the stricter limit wins and the suggestion passes vali
   const r = validateGoal({ ...base, targetDate: inDays(30) });
   assert.equal(r.allowed, false);
   assert.ok(r.suggestion, 'expected a suggestion');
-  // rate: 5 kg / 0.7 kg per week → 50 days; calories: 5 × 7700 / (2100 − 1500) → 65 days.
-  assert.equal(r.suggestion.days, 65);
-  assert.equal(r.suggestion.targetDate, inDays(65));
+  // suggested pace: 5 kg / 0.35 kg per week (0.5 %) → 100 days; calories: 5 × 7700 / (2100 − 1500) → 65 days.
+  assert.equal(r.suggestion.days, 100);
+  assert.equal(r.suggestion.targetDate, inDays(100));
   const recheck = validateGoal({ ...base, targetDate: r.suggestion.targetDate });
-  assert.equal(recheck.allowed, true);
+  assert.equal(recheck.status, STATUS.VALID);
+  assert.ok(recheck.estimate.weeklyRatePercent <= GOAL_POLICY.rate.cut.suggestWeeklyPercent);
   assert.ok(recheck.estimate.estimatedDailyCalories >= 1500);
-  // One day shorter must fail: the suggestion is the minimum.
-  assert.equal(validateGoal({ ...base, targetDate: inDays(64) }).allowed, false);
 });
 
-test('suggestion when the rate limit is the stricter one', () => {
+test('suggestion when the calorie minimum is the stricter one', () => {
+  // 5 kg with 200 kcal/day of room: 5 × 7700 / 200 → 193 days, longer than the 100 days the pace needs.
+  const s = suggestFeasibleTimeline({ ...base, tdee: 1700 });
+  assert.equal(s.ok, true);
+  assert.equal(s.days, 193);
+});
+
+test('suggestion when the rate is the stricter one', () => {
   const s = suggestFeasibleTimeline({ ...base, tdee: 4000, targetWeightKg: 63 });
   assert.equal(s.ok, true);
-  assert.equal(s.days, 70); // 7 kg / 0.7 kg per week
+  assert.equal(s.days, 140); // 7 kg / 0.35 kg per week
 });
 
 test('no suggestion when no timeline can work, with the reason', () => {
