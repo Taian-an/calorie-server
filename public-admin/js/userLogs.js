@@ -7,7 +7,7 @@ function getUserId() {
 }
 
 function renderSummary(user) {
-    document.getElementById('pageTitle').textContent = t("{name}'s Food Log", { name: user.name || user.userId });
+    document.getElementById('pageTitle').textContent = t("{name}'s Food Log", { name: user.email || user.userId });
     document.getElementById('userSummary').innerHTML = `
         <p><strong>ID:</strong> ${escapeHtml(user.userId)} &nbsp; <strong>Email:</strong> ${escapeHtml(user.email)}</p>
     `;

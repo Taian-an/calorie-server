@@ -6,7 +6,7 @@ const { addDays, calcBmr, activityFactor, CODES } = require('../services/goalPla
 
 const TODAY = '2026-10-16';
 const onboarded = {
-  name: 'Test', gender: 'male', age: 21, height: 175, weight: 70, activity: 'sedentary', goal: 'maintain',
+  gender: 'male', age: 21, height: 175, weight: 70, activity: 'sedentary', goal: 'maintain',
 };
 const tdeeOf = p => calcBmr(p.gender, p.weight, p.height, p.age) * activityFactor(p.activity);
 
@@ -67,9 +67,9 @@ test('a weigh-in is never rejected, even when it makes the stored plan fail', ()
   assert.ok(r.patch.target >= 1500); // safe fallback, never below the minimum
 });
 
-test('sign-up with only a name stores the name and computes nothing', () => {
-  const r = buildProfileUpdate({}, { name: 'New', target: 100 }, TODAY);
-  assert.deepEqual(r, { ok: true, patch: { name: 'New' } });
+test('name and avatar are not profile fields: they are dropped, and a bare sign-up computes nothing', () => {
+  const r = buildProfileUpdate({}, { name: 'New', avatarKey: 'x', target: 100 }, TODAY);
+  assert.deepEqual(r, { ok: true, patch: {} });
 });
 
 /* ── PUT /me over HTTP (in-memory user store, auth stubbed) ─────────── */
@@ -134,16 +134,16 @@ test('HTTP: a valid plan is saved with the server-side target', async () => {
 test('HTTP: invalid field types give 400 and are not saved', async () => {
   const { server, users, url } = await makeServer(onboarded);
   try {
-    const res = await put(url, { weight: 'Infinity', name: 'x' });
+    const res = await put(url, { weight: 'Infinity', height: 180 });
     assert.equal(res.status, 400);
-    assert.equal(users.get('u1').name, 'Test');
+    assert.equal(users.get('u1').height, 175);
   } finally { server.close(); }
 });
 
 test('HTTP: unknown user gives 404', async () => {
   const { server, url } = await makeServer(onboarded);
   try {
-    const res = await put(url, { name: 'x' }, { 'x-test-user': 'nobody' });
+    const res = await put(url, { weight: 71 }, { 'x-test-user': 'nobody' });
     assert.equal(res.status, 404);
   } finally { server.close(); }
 });
@@ -182,7 +182,7 @@ test('preview: blocked plans return reasons and a suggestion but no target', () 
 
 test('preview: malformed fields give 400; an incomplete profile is insufficient_information', () => {
   assert.equal(previewGoalPlan(onboarded, { weight: 'x' }, TODAY).httpStatus, 400);
-  const r = previewGoalPlan({ name: 'New' }, { goal: 'cut', targetWeight: 60, goalDate: addDays(TODAY, 300) }, TODAY);
+  const r = previewGoalPlan({}, { goal: 'cut', targetWeight: 60, goalDate: addDays(TODAY, 300) }, TODAY);
   assert.equal(r.body.status, 'insufficient_information');
 });
 

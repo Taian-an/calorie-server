@@ -11,9 +11,6 @@
             <div class="form-card">
                 <h2>Add New User</h2>
 
-                <label>Name</label>
-                <input id="name" placeholder="Enter name">
-
                 <label>Email</label>
                 <input id="email" placeholder="Enter email">
 
@@ -41,7 +38,6 @@
 
             async function addUser(){
                 const user = {
-                    name: document.getElementById("name").value,
                     email: document.getElementById("email").value
                 };
 

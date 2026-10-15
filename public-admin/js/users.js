@@ -72,7 +72,6 @@ function renderUsers() {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${escapeHtml(user.userId)}</td>
-            <td>${escapeHtml(user.name)}</td>
             <td>${escapeHtml(user.email)}</td>
             <td>${planTag(user)}</td>
             <td>${escapeHtml(formatDate(user.createdAt))}</td>
@@ -88,7 +87,7 @@ function renderUsers() {
         row.querySelector('.records-btn').addEventListener('click', () => {
             window.location.href = `userLogs.html?id=${user._id}`;
         });
-        row.querySelector('.delete-btn').addEventListener('click', () => deleteUser(user._id, user.name));
+        row.querySelector('.delete-btn').addEventListener('click', () => deleteUser(user._id, user.email));
         table.appendChild(row);
     });
 }

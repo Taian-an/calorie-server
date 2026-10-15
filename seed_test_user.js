@@ -64,7 +64,6 @@ async function main() {
       userId: 'u' + (1001 + count),
       email: EMAIL,
       passwordHash: await bcrypt.hash(PASSWORD, 10),
-      name: 'Test User 1',
       gender: 'female',
       age: 27,
       height: 165,

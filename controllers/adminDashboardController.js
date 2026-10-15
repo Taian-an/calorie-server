@@ -30,7 +30,7 @@ async function getStats(req, res) {
     User.countDocuments(),
     Analysis.countDocuments({ createdAt: { $gte: startOfToday }, status: 'done' }),
     Feedback.countDocuments(),
-    User.find().sort({ createdAt: -1 }).limit(5).select('userId name email premium').lean(),
+    User.find().sort({ createdAt: -1 }).limit(5).select('userId email premium').lean(),
     getGeminiStatus(),
   ]);
 

@@ -17,7 +17,7 @@ async function listAnalyses(req, res) {
   if (status) filter.status = status;
   if (q) {
     const regex = new RegExp(escapeRegex(q), 'i');
-    const users = await User.find({ $or: [{ email: regex }, { userId: regex }, { name: regex }] }).select('_id').limit(200).lean();
+    const users = await User.find({ $or: [{ email: regex }, { userId: regex }] }).select('_id').limit(200).lean();
     filter.$or = [{ 'result.name': regex }, { userId: { $in: users.map(u => u._id) } }];
   }
 
@@ -29,7 +29,7 @@ async function listAnalyses(req, res) {
   // 一次查回這頁用到的使用者，避免每筆各查一次
   const userIds = [...new Set(items.map(a => a.userId).filter(Boolean).map(String))];
   const users = await User.find({ _id: { $in: userIds.map(id => new mongoose.Types.ObjectId(id)) } })
-    .select('userId email name premium').lean();
+    .select('userId email premium').lean();
   const byId = Object.fromEntries(users.map(u => [String(u._id), u]));
 
   res.json({
@@ -42,7 +42,7 @@ async function listAnalyses(req, res) {
         createdAt: a.createdAt,
         status: a.status,
         error: a.error,
-        user: u ? { _id: u._id, userId: u.userId, email: u.email, name: u.name, premium: !!u.premium } : null,
+        user: u ? { _id: u._id, userId: u.userId, email: u.email, premium: !!u.premium } : null,
         userDeleted: !!a.userId && !u, // 有 userId 但找不到使用者 = 帳號已刪除
         result: a.result ?? null,
       };

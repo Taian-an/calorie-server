@@ -120,7 +120,7 @@ const ANALYZE_WAIT_MS = Number(process.env.ANALYZE_WAIT_MS) || 8000;
 /* ===== Auth ===== */
 // 回傳給 App 的 profile 欄位。App 能寫的欄位和驗證規則在 services/profileUpdate.js（bmr / tdee / target 由後端算）
 const PROFILE_FIELDS = [
-  'name', 'avatarKey', 'gender', 'age', 'ageSetAt', 'birthday', 'height', 'weight', 'targetWeight', 'goalDate',
+  'gender', 'age', 'ageSetAt', 'birthday', 'height', 'weight', 'targetWeight', 'goalDate',
   'activity', 'goal', 'bmr', 'tdee', 'target', 'targetAdjustment', 'targetAdjustedAt', 'lastAdjustment',
 ];
 
@@ -130,7 +130,7 @@ async function userTodayKey(user, req) {
 }
 
 function publicProfile(user) {
-  const out = { email: user.email, username: user.username };
+  const out = { email: user.email };
   for (const f of PROFILE_FIELDS) if (user[f] != null) out[f] = user[f];
   return out;
 }
@@ -166,17 +166,14 @@ function optionalAuth(req, _res, next) {
 // 註冊：可同時帶 profile（把本地資料一起上傳）
 app.post('/auth/register', registerLimiter, async (req, res) => {
   try {
-    const { email, username, password, profile } = req.body;
-    if (!email?.trim() || !username?.trim() || !password || password.length < 4) {
-      return res.status(400).json({ error: 'Invalid email, username or password (min 4 chars)' });
+    const { email, password, profile } = req.body;
+    if (!email?.trim() || !password || password.length < 4) {
+      return res.status(400).json({ error: 'Invalid email or password (min 4 chars)' });
     }
     if (await User.findOne({ email: email.trim().toLowerCase() })) {
       return res.status(409).json({ error: 'Email already registered' });
     }
-    if (await User.findOne({ username: username.trim() })) {
-      return res.status(409).json({ error: 'Username already taken' });
-    }
-    // profile 是前端傳來的本地資料，只能拿白名單裡的欄位，不然亂塞的 key（例如 username/passwordHash）
+    // profile 是前端傳來的本地資料，只能拿白名單裡的欄位，不然亂塞的 key（例如 email/passwordHash）
     // 會透過 spread 蓋掉上面已經驗證過的值 —— 這裡曾經因為前端本地存了一份髒的 profile.username 導致 create 失敗。
     // 跟 PUT /me 一樣過 buildProfileUpdate：驗證欄位、Goal plan，bmr / tdee / target 由後端算
     const tz = (req.headers['x-timezone'] || '').trim();
@@ -190,9 +187,7 @@ app.post('/auth/register', registerLimiter, async (req, res) => {
     const user = await User.create({
       userId: 'u' + (1001 + count),
       email: email.trim().toLowerCase(),
-      username: username.trim(),
       passwordHash: await bcrypt.hash(password, 10),
-      name: username.trim(), // 註冊時輸入的 username 預設當顯示名稱，除非 profile 裡有帶自己填的 name
       ...safeProfile,
     });
     res.json({ token: signToken(user), profile: publicProfile(user) });
@@ -224,7 +219,7 @@ app.post('/auth/google', async (req, res) => {
     if (!GOOGLE_CLIENT_IDS.length) return res.status(500).json({ error: 'Google login not configured' });
 
     const ticket = await googleClient.verifyIdToken({ idToken, audience: GOOGLE_CLIENT_IDS });
-    const { sub: googleId, email, email_verified: emailVerified, name } = ticket.getPayload();
+    const { sub: googleId, email, email_verified: emailVerified } = ticket.getPayload();
     // Account 以 email 識別：Google 沒驗證過的 email 不能拿來建立或接管帳號
     if (!email || emailVerified !== true) {
       return res.status(403).json({ error: 'Your Google account email is not verified' });
@@ -243,7 +238,6 @@ app.post('/auth/google', async (req, res) => {
           userId: 'u' + (1001 + count),
           email: email.trim().toLowerCase(),
           googleId,
-          name,
         });
       }
     }

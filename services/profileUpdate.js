@@ -9,7 +9,7 @@ const {
 
 // Fields the client may send. bmr / tdee / target are not among them: they are computed.
 const CLIENT_FIELDS = [
-  'name', 'avatarKey', 'gender', 'age', 'ageSetAt', 'birthday', 'height', 'weight', 'targetWeight', 'goalDate',
+  'gender', 'age', 'ageSetAt', 'birthday', 'height', 'weight', 'targetWeight', 'goalDate',
   'activity', 'goal', 'targetAdjustment', 'targetAdjustedAt', 'lastAdjustment',
 ];
 const GOAL_FIELDS = ['goal', 'targetWeight', 'goalDate'];
@@ -22,8 +22,6 @@ const { weightKg } = GOAL_POLICY.limits;
 
 // null clears a field where that makes sense (no Goal weight / no target date).
 const RULES = {
-  name: text(40),
-  avatarKey: text(4096),
   gender: oneOf(['male', 'female', 'other']),
   age: num(13, 100),
   ageSetAt: dateKey,
@@ -59,7 +57,7 @@ function buildProfileUpdate(current, body, todayKey) {
   if (invalid.length) return { ok: false, httpStatus: 400, body: { error: 'invalid_profile', fields: invalid } };
 
   const merged = { ...current, ...patch };
-  if (!hasBody(merged)) return { ok: true, patch }; // not onboarded yet (e.g. only a name at sign-up)
+  if (!hasBody(merged)) return { ok: true, patch }; // not onboarded yet (e.g. a bare sign-up)
 
   const bmr = calcBmr(merged.gender, merged.weight, merged.height, merged.age);
   const tdee = bmr * activityFactor(merged.activity);
