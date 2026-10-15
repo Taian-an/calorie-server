@@ -38,7 +38,7 @@ const GOAL_POLICY = Object.freeze({
   // above it do the other rules (the surplus limit) decide whether the plan is blocked.
   rate: Object.freeze({
     cut: Object.freeze({ reviewWeeklyPercent: 0.75, maxWeeklyPercent: 1.0, suggestWeeklyPercent: 0.5 }),
-    bulk: Object.freeze({ reviewWeeklyPercent: 0.75, extremeWeeklyPercent: 1.0 }),
+    bulk: Object.freeze({ reviewWeeklyPercent: 0.75, extremeWeeklyPercent: 1.0, suggestWeeklyPercent: 0.5 }),
   }),
   calories: Object.freeze({
     // Lowest daily Target the app will plan for, by sex. 'other' (not stated) uses the midpoint.
@@ -315,8 +315,8 @@ function validateGoal(input, policy = GOAL_POLICY, { withSuggestion = true } = {
  *   - weekly rate:  days ≥ |Δkg| × 7 / (suggestWeeklyPercent% × current weight), or maxWeeklyPercent%
  *                   when there is no suggested pace or it would take longer than the longest timeline
  *   - cutting:      days ≥ |Δkg| × 7700 / (TDEE − calorie minimum)
- *   - bulking:      days ≥ |Δkg| × 7 / (extremeWeeklyPercent% × current weight); at or under that
- *                   line the surplus limit does not apply
+ *   - bulking:      days ≥ |Δkg| × 7 / (extremeWeeklyPercent% × current weight) at least; at or under
+ *                   that line the surplus limit does not apply
  * The stricter one wins, it is checked again with validateGoal, and it is offered only if it passes.
  * → { ok: true, days, targetDate, estimate } | { ok: false, reason }
  */

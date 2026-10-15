@@ -153,7 +153,11 @@ test('an extreme bulk is still blocked by the surplus limit, and stays flagged a
   assert.equal(r.status, STATUS.CALORIE_LIMIT_EXCEEDED);
   assert.deepEqual(codes(r), [CODES.SURPLUS_TOO_LARGE]);
   assert.ok(warnCodes(r).includes(CODES.RATE_EXTREME));
-  assert.ok(r.suggestion && validateGoal({ ...base, goalType: 'bulk', targetWeightKg: 73, targetDate: r.suggestion.targetDate }).allowed);
+  // suggested pace: 3 kg / 0.35 kg per week (0.5 %) → 60 days, and the result is reasonable.
+  assert.equal(r.suggestion?.days, 60);
+  const recheck = validateGoal({ ...base, goalType: 'bulk', targetWeightKg: 73, targetDate: r.suggestion.targetDate });
+  assert.equal(recheck.status, STATUS.VALID);
+  assert.ok(recheck.estimate.weeklyRatePercent <= GOAL_POLICY.rate.bulk.suggestWeeklyPercent);
 });
 
 test('cutting keeps its hard limit: no RATE_EXTREME, RATE_TOO_FAST above 1 %', () => {
