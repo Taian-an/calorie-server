@@ -19,6 +19,12 @@ module.exports = mongoose.model('User', new mongoose.Schema({
   bmr:          Number,
   tdee:         Number,
   target:       Number,
+  birthday:     String, // YYYY-MM-DD，有填的話 age 由生日算出
+  targetWeight: Number, // 目標體重（kg），App 依目前體重比較決定 goal
+  // Adaptive adjustment（見 GLOSSARY）：依 7 日平均體重趨勢對目標熱量做的累計微調（kcal）
+  targetAdjustment: Number,
+  targetAdjustedAt: String, // 最近一次調整的 Day（YYYY-MM-DD）
+  lastAdjustment:   Number, // 最近一次調整了多少 kcal
   // Account 的時區（GLOSSARY「Time zone」）：決定一天從哪裡開始，24 小時內只能換一次
   timezone:          String,
   timezoneChangedAt: Date,

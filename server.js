@@ -117,7 +117,10 @@ const analysisQueueEvents = new QueueEvents('food-analysis', { connection: redis
 const ANALYZE_WAIT_MS = Number(process.env.ANALYZE_WAIT_MS) || 8000;
 
 /* ===== Auth ===== */
-const PROFILE_FIELDS = ['name', 'avatarKey', 'gender', 'age', 'ageSetAt', 'height', 'weight', 'activity', 'goal', 'bmr', 'tdee', 'target'];
+const PROFILE_FIELDS = [
+  'name', 'avatarKey', 'gender', 'age', 'ageSetAt', 'birthday', 'height', 'weight', 'targetWeight',
+  'activity', 'goal', 'bmr', 'tdee', 'target', 'targetAdjustment', 'targetAdjustedAt', 'lastAdjustment',
+];
 
 function publicProfile(user) {
   const out = { email: user.email, username: user.username };
