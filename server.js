@@ -13,6 +13,7 @@ const { THAI_FOODS } = require('./thai-foods');
 const { recognizeFood, preprocessImage } = require('./services/foodRecognition');
 const { accountTimezone, localDay, checkQuota, recordUse } = require('./services/usageLimits');
 const { deleteAccount } = require('./services/accountDeletion');
+const { buildProfileUpdate, createPutMeHandler } = require('./services/profileUpdate');
 require('dotenv').config();
 
 const User     = require('./models/User');
@@ -117,10 +118,16 @@ const analysisQueueEvents = new QueueEvents('food-analysis', { connection: redis
 const ANALYZE_WAIT_MS = Number(process.env.ANALYZE_WAIT_MS) || 8000;
 
 /* ===== Auth ===== */
+// 回傳給 App 的 profile 欄位。App 能寫的欄位和驗證規則在 services/profileUpdate.js（bmr / tdee / target 由後端算）
 const PROFILE_FIELDS = [
-  'name', 'avatarKey', 'gender', 'age', 'ageSetAt', 'birthday', 'height', 'weight', 'targetWeight', 'goalMonths',
+  'name', 'avatarKey', 'gender', 'age', 'ageSetAt', 'birthday', 'height', 'weight', 'targetWeight', 'goalDate',
   'activity', 'goal', 'bmr', 'tdee', 'target', 'targetAdjustment', 'targetAdjustedAt', 'lastAdjustment',
 ];
+
+// 使用者當地的今天（GLOSSARY「Day」），Goal plan 的目標日期以這天起算
+async function userTodayKey(user, req) {
+  return localDay(await accountTimezone(user, req)).day;
+}
 
 function publicProfile(user) {
   const out = { email: user.email, username: user.username };
@@ -170,9 +177,14 @@ app.post('/auth/register', registerLimiter, async (req, res) => {
       return res.status(409).json({ error: 'Username already taken' });
     }
     // profile 是前端傳來的本地資料，只能拿白名單裡的欄位，不然亂塞的 key（例如 username/passwordHash）
-    // 會透過 spread 蓋掉上面已經驗證過的值 —— 這裡曾經因為前端本地存了一份髒的 profile.username 導致 create 失敗
-    const safeProfile = {};
-    for (const f of PROFILE_FIELDS) if (profile?.[f] !== undefined) safeProfile[f] = profile[f];
+    // 會透過 spread 蓋掉上面已經驗證過的值 —— 這裡曾經因為前端本地存了一份髒的 profile.username 導致 create 失敗。
+    // 跟 PUT /me 一樣過 buildProfileUpdate：驗證欄位、Goal plan，bmr / tdee / target 由後端算
+    const tz = (req.headers['x-timezone'] || '').trim();
+    let today;
+    try { today = localDay(tz || 'UTC').day; } catch { today = localDay('UTC').day; }
+    const built = buildProfileUpdate({}, profile ?? {}, today);
+    if (!built.ok) return res.status(built.httpStatus).json(built.body);
+    const safeProfile = built.patch;
 
     const count = await User.countDocuments();
     const user = await User.create({
@@ -249,12 +261,9 @@ app.get('/me', requireAuth, async (req, res) => {
   res.json(publicProfile(user));
 });
 
-app.put('/me', requireAuth, async (req, res) => {
-  const patch = {};
-  for (const f of PROFILE_FIELDS) if (req.body[f] !== undefined) patch[f] = req.body[f];
-  const user = await User.findByIdAndUpdate(req.uid, patch, { new: true });
-  res.json(publicProfile(user));
-});
+// 更新 profile：欄位驗證、Goal plan 驗證、重算 bmr / tdee / target 都在 services/profileUpdate.js。
+// 被擋下時回 400（欄位不合法）或 422（Goal plan 不通過，附 status / errors / suggestion）
+app.put('/me', requireAuth, createPutMeHandler({ User, todayFor: userTodayKey, publicProfile }));
 
 // DELETE /me — 刪除帳號（App Store 審核準則 5.1.1(v)：App 裡能註冊，就必須能在 App 裡刪除帳號）。
 // 刪除範圍見 services/accountDeletion.js，跟後台刪除帳號共用同一套
