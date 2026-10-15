@@ -392,7 +392,7 @@ app.post('/coach/chat', requireAuth, async (req, res) => {
     const history = await coachHistory(req.uid, today, user.target);
 
     const systemPrompt = [
-      '你是「AI 卡路里追蹤」App 裡的個人營養與健身教練，個性親切、有耐心、講重點，語氣自然口語化。',
+      '你是「AI 卡路里追蹤」App 裡的個人營養與健身教練，名字叫 Fitly，個性親切、有耐心、講重點，語氣自然口語化。',
       lang === 'en'
         ? 'Always reply in English, even if the user writes in another language.'
         : '用繁體中文回答。',
