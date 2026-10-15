@@ -13,6 +13,9 @@ const dailyLogSchema = new mongoose.Schema({
     sodium: Number, potassium: Number, calcium: Number,
     iron: Number, vitaminC: Number,
     vitaminA: Number,
+    photoId:  String, // AI 辨識的照片縮圖（EntryPhoto）
+    photoUrl: String, // 外部圖片（條碼商品在 Open Food Facts 的圖）
+    servings: Number, // 沒有克數的 Entry 用「幾份」表示份量，預設 1
   }],
 }, { timestamps: true });
 dailyLogSchema.index({ userId: 1, date: 1 }, { unique: true });

@@ -5,6 +5,7 @@ module.exports = mongoose.model('Analysis', new mongoose.Schema({
   userId:      { type: mongoose.Schema.Types.ObjectId, default: null },
   status:      { type: String, enum: ['pending', 'done', 'failed'], default: 'pending' },
   error:       String, // status 'failed' 時的錯誤訊息
+  photoId:     String, // 第一張照片的縮圖（EntryPhoto），記成 Entry 時會帶著
   candidates:  [String],
   matchedName: String,
   source:      String, // 'db' | 'usda' | 'gemini'

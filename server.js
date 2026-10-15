@@ -21,6 +21,9 @@ const Food     = require('./models/Food');
 const Analysis = require('./models/Analysis');
 const Feedback = require('./models/Feedback');
 const Admin    = require('./models/Admin');
+const EntryPhoto = require('./models/EntryPhoto');
+const crypto   = require('crypto');
+const sharp    = require('sharp');
 const adminRoutes = require('./routes/adminRoutes');
 const { loginLimiter, registerLimiter } = require('./middleware/rateLimiter');
 
@@ -289,11 +292,20 @@ app.put('/logs/:date', requireAuth, async (req, res) => {
   const { date } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Bad date' });
   const { weight, target, meals } = req.body ?? {};
+  const before = await DailyLog.findOne({ userId: req.uid, date }, { 'meals.photoId': 1 }).lean();
   await DailyLog.updateOne(
     { userId: req.uid, date },
     { $set: { weight, target, meals: meals ?? [] } },
     { upsert: true }
   );
+  // 照片跟著 Entry 走：這天用到的照片不再自動過期；這天被刪掉的 Entry，照片一起刪
+  const photoIds = arr => (arr ?? []).map(m => m?.photoId).filter(id => typeof id === 'string');
+  const now = photoIds(meals);
+  const removed = photoIds(before?.meals).filter(id => !now.includes(id));
+  await Promise.all([
+    now.length && EntryPhoto.updateMany({ _id: { $in: now }, userId: req.uid }, { $unset: { expiresAt: 1 } }),
+    removed.length && EntryPhoto.deleteMany({ _id: { $in: removed }, userId: req.uid }),
+  ]).catch(err => console.error('[logs] photo bookkeeping failed:', err.message));
   res.json({ ok: true });
 });
 
@@ -481,6 +493,22 @@ function publicAnalysisResult(r) {
   };
 }
 
+// 辨識的第一張照片縮成小圖存起來，讓記好的 Entry 之後點開看得到。還沒被記成 Entry 的一天後自動刪掉。
+// 縮圖失敗不影響辨識本身，回傳 undefined 就好
+const PHOTO_UNCLAIMED_TTL_MS = 24 * 60 * 60 * 1000;
+async function saveEntryPhoto(userId, buffer) {
+  try {
+    const data = await sharp(buffer).rotate().resize(480, 480, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 70 }).toBuffer();
+    const _id = crypto.randomBytes(16).toString('hex');
+    await EntryPhoto.create({ _id, userId, data, contentType: 'image/jpeg', expiresAt: new Date(Date.now() + PHOTO_UNCLAIMED_TTL_MS) });
+    return _id;
+  } catch (err) {
+    console.error('[analyze] thumbnail failed:', err.message);
+    return undefined;
+  }
+}
+
 // POST /analyze — 收到圖片和/或文字說明（至少要有一樣，純文字輸入時沒有圖片也可以）。
 // 流程：先把照片縮到 1024px（原圖 3~5MB → 約 150KB，塞 Redis、送 Gemini 都快很多）→ 建 pending 紀錄丟進佇列 →
 // 在同一個 request 裡等 Worker 做完，最多等 ANALYZE_WAIT_MS：
@@ -504,7 +532,8 @@ app.post('/analyze', requireAuth, upload.array('images', 5), async (req, res) =>
   let analysis, job;
   try {
     const images = await Promise.all(files.map(f => preprocessImage(f.buffer, f.mimetype)));
-    analysis = await Analysis.create({ userId: req.uid, status: 'pending' });
+    const photoId = files.length ? await saveEntryPhoto(req.uid, files[0].buffer) : undefined;
+    analysis = await Analysis.create({ userId: req.uid, status: 'pending', photoId });
     job = await analysisQueue.add('analyze', {
       analysisId: analysis._id.toString(),
       images: images.map(img => ({ data: img.buffer.toString('base64'), mimeType: img.mimeType })),
@@ -521,7 +550,7 @@ app.post('/analyze', requireAuth, upload.array('images', 5), async (req, res) =>
 
   try {
     const result = await job.waitUntilFinished(analysisQueueEvents, ANALYZE_WAIT_MS);
-    return res.json({ analysisId: analysis._id, ...publicAnalysisResult(result) });
+    return res.json({ analysisId: analysis._id, photoId: analysis.photoId, ...publicAnalysisResult(result) });
   } catch (err) {
     // 兩種情況會到這：Worker 辨識失敗（status 已經寫成 failed），或是等超過 ANALYZE_WAIT_MS 還在跑
     const latest = await Analysis.findById(analysis._id).lean().catch(() => null);
@@ -552,7 +581,17 @@ app.get('/analyses/:id', optionalAuth, async (req, res) => {
   }
   if (analysis.status === 'pending') return res.json({ status: 'pending' });
   if (analysis.status === 'failed') return res.json({ status: 'failed', error: analysis.error });
-  res.json(publicAnalysisResult(analysis.result));
+  res.json({ photoId: analysis.photoId, ...publicAnalysisResult(analysis.result) });
+});
+
+// GET /photos/:id — Entry 的照片縮圖。不用登入（網頁版 <img> 帶不了 token），靠 128-bit 隨機 id 不可猜測
+app.get('/photos/:id', async (req, res) => {
+  if (!/^[0-9a-f]{32}$/.test(req.params.id)) return res.status(404).end();
+  const photo = await EntryPhoto.findById(req.params.id).lean().catch(() => null);
+  if (!photo) return res.status(404).end();
+  res.set('Content-Type', photo.contentType ?? 'image/jpeg');
+  res.set('Cache-Control', 'private, max-age=31536000, immutable');
+  res.send(photo.data.buffer ? Buffer.from(photo.data.buffer) : photo.data);
 });
 
 /* ===== 食物搜尋與辨識歷史 ===== */
