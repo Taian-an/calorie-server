@@ -33,7 +33,8 @@ const GOAL_POLICY = Object.freeze({
   //   above maxWeeklyPercent               rejected (RATE_TOO_FAST)
   //   above extremeWeeklyPercent           allowed by the rate itself but flagged as extreme
   //                                        (RATE_EXTREME); the calorie limits still decide
-  // Building muscle has no hard rate limit; the surplus limit below usually ends it first.
+  // Building muscle has no hard rate limit. Up to the extreme line the rate tier alone decides; only
+  // above it do the other rules (the surplus limit) decide whether the plan is blocked.
   rate: Object.freeze({
     cut: Object.freeze({ reviewWeeklyPercent: 0.75, maxWeeklyPercent: 1.0 }),
     bulk: Object.freeze({ reviewWeeklyPercent: 0.75, extremeWeeklyPercent: 1.0 }),
@@ -41,7 +42,8 @@ const GOAL_POLICY = Object.freeze({
   calories: Object.freeze({
     // Lowest daily Target the app will plan for, by sex. 'other' (not stated) uses the midpoint.
     minimumBySex: Object.freeze({ female: 1200, male: 1500, other: 1350 }),
-    // Largest daily surplus approved without review when building muscle.
+    // Largest daily surplus for an extreme bulk (above rate.bulk.extremeWeeklyPercent); a bulk at or
+    // under the extreme line is judged by its rate tier only.
     maxSurplusKcal: 500,
   }),
   // Plans that change weight are not offered under this age; maintaining still is.
@@ -282,12 +284,13 @@ function validateGoal(input, policy = GOAL_POLICY, { withSuggestion = true } = {
     errors.push(issue(CODES.CALORIES_BELOW_MINIMUM, { minimum }));
     if (status === STATUS.VALID) status = STATUS.CALORIE_LIMIT_EXCEEDED;
   }
-  if (goalType === 'bulk' && numbers.dailyAdjustmentKcal > policy.calories.maxSurplusKcal + 1e-9) {
+  const extreme = rule.extremeWeeklyPercent != null && pct > rule.extremeWeeklyPercent + 1e-9;
+  if (goalType === 'bulk' && extreme && numbers.dailyAdjustmentKcal > policy.calories.maxSurplusKcal + 1e-9) {
     errors.push(issue(CODES.SURPLUS_TOO_LARGE, { maxSurplus: policy.calories.maxSurplusKcal }));
     if (status === STATUS.VALID) status = STATUS.CALORIE_LIMIT_EXCEEDED;
   }
   // An extreme rate is always flagged, even when another rule already blocks the plan.
-  if (rule.extremeWeeklyPercent != null && pct > rule.extremeWeeklyPercent + 1e-9) {
+  if (extreme) {
     warnings.push(issue(CODES.RATE_EXTREME, { extremeWeeklyPercent: rule.extremeWeeklyPercent }));
   } else if (status === STATUS.VALID && pct > rule.reviewWeeklyPercent + 1e-9) {
     warnings.push(issue(CODES.RATE_AGGRESSIVE, {
@@ -310,7 +313,8 @@ function validateGoal(input, policy = GOAL_POLICY, { withSuggestion = true } = {
  * The shortest timeline that meets every limit for this goal:
  *   - weekly rate:  days ≥ |Δkg| × 7 / (maxWeeklyPercent% × current weight), when there is a maximum
  *   - cutting:      days ≥ |Δkg| × 7700 / (TDEE − calorie minimum)
- *   - bulking:      days ≥ |Δkg| × 7700 / max surplus
+ *   - bulking:      days ≥ |Δkg| × 7 / (extremeWeeklyPercent% × current weight); at or under that
+ *                   line the surplus limit does not apply
  * The stricter one wins, it is checked again with validateGoal, and it is offered only if it passes.
  * → { ok: true, days, targetDate, estimate } | { ok: false, reason }
  */
@@ -330,7 +334,8 @@ function suggestFeasibleTimeline(input, policy = GOAL_POLICY) {
     if (room <= 0) return { ok: false, reason: 'tdee_below_minimum' };
     days = Math.max(days, Math.ceil((deltaKg * policy.kcalPerKg) / room));
   } else {
-    days = Math.max(days, Math.ceil((deltaKg * policy.kcalPerKg) / policy.calories.maxSurplusKcal));
+    const extremePercent = policy.rate.bulk.extremeWeeklyPercent;
+    days = Math.max(days, Math.ceil((deltaKg * 7) / ((extremePercent / 100) * currentWeightKg)));
   }
   days = Math.max(days, policy.limits.timelineDays.min);
 

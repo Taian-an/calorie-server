@@ -182,11 +182,15 @@ test('a plan whose calories would be zero or negative is rejected, never clamped
   assert.equal(r.estimate.estimatedDailyCalories, 2100 - 10 * 7700 / 30); // untouched
 });
 
-test('large bulking surplus is flagged, not approved', () => {
-  // Heavy person: 0.25 %/week is a reasonable rate, but of 200 kg it is 0.5 kg/week ≈ 550 kcal/day > 500.
-  const r = validateGoal({ ...base, goalType: 'bulk', currentWeightKg: 200, targetWeightKg: 205, tdee: 4000, targetDate: inDays(70) });
-  assert.equal(r.status, STATUS.CALORIE_LIMIT_EXCEEDED);
-  assert.deepEqual(codes(r), [CODES.SURPLUS_TOO_LARGE]);
+test('the surplus limit does not apply at or under the 1 %/week extreme line', () => {
+  // Heavy person: 0.25 %/week of 200 kg = 0.5 kg/week ≈ 550 kcal/day, over 500 but a reasonable rate.
+  const heavy = validateGoal({ ...base, goalType: 'bulk', currentWeightKg: 200, targetWeightKg: 205, tdee: 4000, targetDate: inDays(70) });
+  assert.equal(heavy.status, STATUS.VALID);
+  // 70 kg, +7 kg in 92 days = 0.53 kg/week (0.76 %) ≈ 586 kcal/day: needs review, not blocked.
+  const review = validateGoal({ ...base, goalType: 'bulk', targetWeightKg: 77, targetDate: inDays(92) });
+  assert.equal(review.status, STATUS.WARNING);
+  assert.equal(review.allowed, true);
+  assert.deepEqual(warnCodes(review), [CODES.RATE_AGGRESSIVE]);
 });
 
 test('missing sex or age gives insufficient_information, minors get policy_restricted', () => {
