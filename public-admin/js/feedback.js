@@ -22,10 +22,10 @@ async function loadFeedback() {
     (result.data ?? []).forEach(item => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${formatDate(item.createdAt)}</td>
-            <td style="text-align:left; max-width: 320px;">${item.message ?? ''}</td>
-            <td>${item.email ?? '—'}</td>
-            <td><span class="status-tag ${item.status}">${t(item.status)}</span></td>
+            <td>${escapeHtml(formatDate(item.createdAt))}</td>
+            <td style="text-align:left; max-width: 320px;">${escapeHtml(item.message)}</td>
+            <td>${escapeHtml(item.email ?? '—')}</td>
+            <td><span class="status-tag ${escapeHtml(item.status)}">${escapeHtml(t(item.status))}</span></td>
             <td>
                 <button class="edit-btn toggle-btn">${item.status === 'new' ? t('Mark Reviewed') : t('Mark New')}</button>
                 <button class="delete-btn">${t('Delete')}</button>

@@ -70,11 +70,11 @@ function renderUsers() {
     [...allUsers].sort(compareUsers).forEach(user => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${user.userId ?? ''}</td>
-            <td>${user.name ?? ''}</td>
-            <td>${user.email ?? ''}</td>
-            <td>${user.status ? t(user.status) : ''}</td>
-            <td>${formatDate(user.createdAt)}</td>
+            <td>${escapeHtml(user.userId)}</td>
+            <td>${escapeHtml(user.name)}</td>
+            <td>${escapeHtml(user.email)}</td>
+            <td>${escapeHtml(user.status ? t(user.status) : '')}</td>
+            <td>${escapeHtml(formatDate(user.createdAt))}</td>
             <td>
                 <button class="edit-btn">${t('Edit')}</button>
                 <button class="records-btn">${t('Records')}</button>

@@ -1,6 +1,11 @@
 // 共用的後台認證小工具：存 token、附加 Authorization header、沒登入就導回登入頁
 const ADMIN_TOKEN_KEY = 'calorie_admin_token';
 
+// 名稱、email、留言、食物名稱等都可能來自使用者或 AI，插進 HTML 前一律跳脫
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 function getAdminToken() {
   return localStorage.getItem(ADMIN_TOKEN_KEY);
 }

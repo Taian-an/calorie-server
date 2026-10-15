@@ -27,10 +27,10 @@ async function loadDashboard() {
     recentUsers.forEach(user => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${user.userId ?? ''}</td>
-            <td>${user.name ?? '—'}</td>
-            <td>${user.email ?? ''}</td>
-            <td>${user.status ? t(user.status) : ''}</td>
+            <td>${escapeHtml(user.userId)}</td>
+            <td>${escapeHtml(user.name ?? '—')}</td>
+            <td>${escapeHtml(user.email)}</td>
+            <td>${escapeHtml(user.status ? t(user.status) : '')}</td>
         `;
         table.appendChild(row);
     });

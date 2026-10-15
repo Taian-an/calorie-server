@@ -9,7 +9,7 @@ function getUserId() {
 function renderSummary(user) {
     document.getElementById('pageTitle').textContent = t("{name}'s Food Log", { name: user.name || user.userId });
     document.getElementById('userSummary').innerHTML = `
-        <p><strong>ID:</strong> ${user.userId ?? ''} &nbsp; <strong>Email:</strong> ${user.email ?? ''}</p>
+        <p><strong>ID:</strong> ${escapeHtml(user.userId)} &nbsp; <strong>Email:</strong> ${escapeHtml(user.email)}</p>
     `;
 }
 
@@ -26,18 +26,18 @@ function renderLogs(logs) {
         const dayTotal = meals.reduce((sum, m) => sum + (m.energy ?? 0), 0);
         const rows = meals.map(m => `
             <tr>
-                <td>${MEAL_LABELS[m.mealType] ? t(MEAL_LABELS[m.mealType]) : (m.mealType ?? '')}</td>
-                <td>${m.name ?? ''}</td>
-                <td>${m.energy ?? 0}</td>
-                <td>${m.protein ?? 0}</td>
-                <td>${m.carbs ?? 0}</td>
-                <td>${m.fat ?? 0}</td>
+                <td>${escapeHtml(MEAL_LABELS[m.mealType] ? t(MEAL_LABELS[m.mealType]) : m.mealType)}</td>
+                <td>${escapeHtml(m.name)}</td>
+                <td>${escapeHtml(m.energy ?? 0)}</td>
+                <td>${escapeHtml(m.protein ?? 0)}</td>
+                <td>${escapeHtml(m.carbs ?? 0)}</td>
+                <td>${escapeHtml(m.fat ?? 0)}</td>
             </tr>
         `).join('');
 
         return `
             <div class="log-day">
-                <h3>${log.date} — ${t('Total {kcal} kcal', { kcal: dayTotal })}${log.weight ? ` ｜ ${t('Weight {kg}kg', { kg: log.weight })}` : ''}</h3>
+                <h3>${escapeHtml(log.date)} — ${escapeHtml(t('Total {kcal} kcal', { kcal: dayTotal }))}${log.weight ? ` ｜ ${escapeHtml(t('Weight {kg}kg', { kg: log.weight }))}` : ''}</h3>
                 ${meals.length ? `
                     <table>
                         <thead>

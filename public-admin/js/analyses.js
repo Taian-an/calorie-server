@@ -7,11 +7,6 @@ let currentQuery = '';
 let currentStatus = '';
 let totalCount = 0;
 
-// 食物名稱、錯誤訊息來自 AI 或使用者輸入，插進 HTML 前一律跳脫
-function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
 function formatMs(ms) {
     return ms == null ? '—' : `${(ms / 1000).toFixed(1)} s`;
 }
