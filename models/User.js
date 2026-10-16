@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 // users collection 與後台管理系統共用，後台的使用者管理頁會直接看到 App 註冊的帳號。
 // Account 只以 email 識別；顯示名稱和頭像只存在 App 本機，不進資料庫
 module.exports = mongoose.model('User', new mongoose.Schema({
-  userId:       String, // 後台顯示用編號 u1001 起
+  userId:       { type: String, unique: true, sparse: true }, // 後台顯示用編號 u1001 起，由 services/userIds.js 發號
   email:        { type: String, unique: true, sparse: true },
   googleId:     { type: String, unique: true, sparse: true },
   passwordHash: String,

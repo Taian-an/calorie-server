@@ -18,6 +18,7 @@ Server-side settings not captured in files:
 
 ## Pending on the production VM
 
+- **Fix duplicate user numbers after the next deploy.** Older builds numbered users by user count, so deleting a user made the next sign-up reuse a number. `ops/` isn't deployed, so run the script from this machine through an SSH tunnel: back up `users` (mongodump), open `ssh -i ../AI-calorie-server_key.pem -N -L 27018:127.0.0.1:27017 azureuser@20.46.181.25`, then run `MONGODB_URI=mongodb://127.0.0.1:27018/calorieDB node ops/fix-duplicate-user-ids.js` (dry run), check the list, and run it again with `--apply`. It renumbers the newer account in each duplicate pair and creates the unique index on `userId`. Until then MongoDB can't build that index (the duplicates block it), but every new number is already unique.
 - **Copy the two nginx snippets to the VM** (`/etc/nginx/snippets/`) and reload nginx. They now pass `X-Forwarded-For`; without it every request reaches Node as `127.0.0.1` and all users share one login rate limit.
 - **Change the admin password first thing after the VM is back.** Older builds created `admin` / `admin123` automatically, and the production admin may still use it. Log in to `/admin` → Settings and set a strong password.
 

@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken');
 const Admin = require('../models/Admin');
 const User = require('../models/User');
 const DailyLog = require('../models/DailyLog');
+const Counter = require('../models/Counter');
+const { nextUserId } = require('../services/userIds');
 const { deleteAccount } = require('../services/accountDeletion');
 
 // premium 只有後台能改（App 的 PUT /me 用的是 server.js 的 PROFILE_FIELDS，刻意不含 premium，使用者不能自己升級）
@@ -71,10 +73,9 @@ async function addUser(req, res) {
       return res.status(409).json({ success: false, error: 'Email already registered' });
     }
 
-    const count = await User.countDocuments();
     const tempPassword = crypto.randomBytes(6).toString('base64url');
     const user = await User.create({
-      userId: 'u' + (1001 + count),
+      userId: await nextUserId(Counter.collection, User.collection),
       email: trimmedEmail,
       passwordHash: await bcrypt.hash(tempPassword, 10),
     });

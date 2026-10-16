@@ -24,6 +24,8 @@ const Analysis = require('./models/Analysis');
 const Feedback = require('./models/Feedback');
 const Admin    = require('./models/Admin');
 const EntryPhoto = require('./models/EntryPhoto');
+const Counter  = require('./models/Counter');
+const { nextUserId, syncUserIdCounter } = require('./services/userIds');
 const crypto   = require('crypto');
 const sharp    = require('sharp');
 const adminRoutes = require('./routes/adminRoutes');
@@ -97,9 +99,19 @@ async function seedAdmin() {
   }
 }
 
+// 使用者編號計數器至少要跟現有最大編號一樣大（第一次部署、或有人手動匯入使用者之後）
+async function syncCounters() {
+  try {
+    await syncUserIdCounter(Counter.collection, User.collection);
+  } catch (err) {
+    console.error('[syncCounters]', err.message);
+  }
+}
+
 mongoose.connection.once('open', () => {
   seedFoods();
   seedAdmin();
+  syncCounters();
 });
 
 /* ===== 食物辨識任務佇列（BullMQ + Redis）=====
@@ -182,9 +194,8 @@ app.post('/auth/register', registerLimiter, async (req, res) => {
     if (!built.ok) return res.status(built.httpStatus).json(built.body);
     const safeProfile = built.patch;
 
-    const count = await User.countDocuments();
     const user = await User.create({
-      userId: 'u' + (1001 + count),
+      userId: await nextUserId(Counter.collection, User.collection),
       email,
       passwordHash: await bcrypt.hash(password, 10),
       ...safeProfile,
@@ -233,9 +244,8 @@ app.post('/auth/google', async (req, res) => {
         user.googleId = googleId;
         await user.save();
       } else {
-        const count = await User.countDocuments();
         user = await User.create({
-          userId: 'u' + (1001 + count),
+          userId: await nextUserId(Counter.collection, User.collection),
           email: email.trim().toLowerCase(),
           googleId,
         });

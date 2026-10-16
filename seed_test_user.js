@@ -8,6 +8,8 @@ const bcrypt = require('bcryptjs');
 
 const User = require(path.join(SERVER_DIR, 'models/User'));
 const DailyLog = require(path.join(SERVER_DIR, 'models/DailyLog'));
+const Counter = require(path.join(SERVER_DIR, 'models/Counter'));
+const { nextUserId } = require(path.join(SERVER_DIR, 'services/userIds'));
 
 const EMAIL = 'usertest1@gmail.com';
 const PASSWORD = 'usertest1';
@@ -59,9 +61,8 @@ async function main() {
 
   let user = await User.findOne({ email: EMAIL });
   if (!user) {
-    const count = await User.countDocuments();
     user = await User.create({
-      userId: 'u' + (1001 + count),
+      userId: await nextUserId(Counter.collection, User.collection),
       email: EMAIL,
       passwordHash: await bcrypt.hash(PASSWORD, 10),
       gender: 'female',
