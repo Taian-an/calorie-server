@@ -1,3 +1,5 @@
+// 必須最先載入：之後 require 的模組（如 services/foodRecognition）在載入時就會讀 process.env
+require('dotenv').config();
 const path     = require('path');
 const express  = require('express');
 const cors     = require('cors');
@@ -15,7 +17,6 @@ const { accountTimezone, localDay, checkQuota, recordUse } = require('./services
 const { deleteAccount } = require('./services/accountDeletion');
 const { buildProfileUpdate, createPutMeHandler, createGoalPreviewHandler } = require('./services/profileUpdate');
 const { validateRegisterInput, isDuplicateEmailError, EMAIL_TAKEN } = require('./services/registerInput');
-require('dotenv').config();
 
 const User     = require('./models/User');
 const DailyLog = require('./models/DailyLog');
